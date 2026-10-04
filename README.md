@@ -23,8 +23,7 @@ A standalone desktop editor with real-time GPU preview, paired with the **Advanc
 
 <br>
 
-<!-- TODO: replace this screenshot with a short demo GIF (editor → in-game), e.g. docs/screenshots/demo.gif -->
-<img src="docs/screenshots/viewport-3d.png" alt="Lempo Particle Editor — 3D viewport" width="860">
+<img src="docs/screenshots/demo.gif" alt="Lempo Particle Editor — demo" width="860">
 
 </div>
 
