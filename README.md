@@ -60,8 +60,8 @@ Both parts share a single source of truth for particle behavior, shapes, and the
     <td align="center"><img src="docs/screenshots/states-panel.png" alt="States panel"><br><sub><b>Per-state colors (3D)</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/trails-2d.jpg" alt="Trail ribbons 2D"><br><sub><b>Trails & Ribbons (2D)</b></sub></td>
-    <td align="center"><img src="docs/screenshots/trails-3d.jpg" alt="Trail ribbons 3D"><br><sub><b>Trails & Ribbons (3D)</b></sub></td>
+    <td align="center"><img src="docs/screenshots/trails-2d.png" alt="Trail ribbons 2D"><br><sub><b>Trails & Ribbons (2D)</b></sub></td>
+    <td align="center"><img src="docs/screenshots/trails-3d.png" alt="Trail ribbons 3D"><br><sub><b>Trails & Ribbons (3D)</b></sub></td>
   </tr>
 </table>
 
