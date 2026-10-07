@@ -2,7 +2,7 @@
 
 <img src="assets/app_icon.png" alt="Lempo Particle Editor icon" width="160">
 
-# Lempo Particle Editor
+# Lempo Particle FX
 
 **Design stunning 2D & 3D particle effects visually — and play them in GDevelop.**
 
