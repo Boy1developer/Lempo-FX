@@ -12,9 +12,11 @@ A standalone desktop editor with real-time GPU preview, paired with the **Advanc
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=for-the-badge&logo=windows)](https://github.com/Boy1developer/Lempo-Particle-Editor/releases)
 [![GDevelop](https://img.shields.io/badge/GDevelop-extension-6c5ce7?style=for-the-badge)](https://gdevelop.io)
+[![itch.io](https://img.shields.io/badge/itch.io-lempo--fx-fa5c5c?style=for-the-badge&logo=itchdotio&logoColor=white)](https://eg-dev1.itch.io/lempo-fx)
 [![YouTube](https://img.shields.io/badge/YouTube-@EG_dev-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/@EG_dev)
 
 [**⬇️ Download**](https://github.com/Boy1developer/Lempo-Particle-Editor/releases) ·
+[**🎮 itch.io**](https://eg-dev1.itch.io/lempo-fx) ·
 [**✨ Features**](#-features) ·
 [**🚀 Quick Start**](#-quick-start) ·
 [**🎨 Blend Modes**](#-blend-modes) ·
@@ -119,7 +121,7 @@ Both parts share a single source of truth for particle behavior, shapes, and the
 
 ### 1. Get the editor
 
-Download `LempoParticleEditor.exe` from the **[Releases](https://github.com/Boy1developer/Lempo-Particle-Editor/releases)** page and run it. No Python installation required. The window title shows `v0.2.0`; it pairs with extension `v0.2.0` and export format `v1.1` (v1.0 files migrate automatically).
+Download `LempoParticleEditor.exe` from the **[Releases](https://github.com/Boy1developer/Lempo-Particle-Editor/releases)** page (or from **[itch.io](https://eg-dev1.itch.io/lempo-fx)**) and run it. No Python installation required. The window title shows `v0.2.0`; it pairs with extension `v0.2.0` and export format `v1.1` (v1.0 files migrate automatically).
 
 **Requirements:** Windows 10/11 (64-bit) · GPU with OpenGL 3.3 support
 
