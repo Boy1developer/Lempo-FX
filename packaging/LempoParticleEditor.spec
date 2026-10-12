@@ -3,6 +3,7 @@
 # Layout: this file lives in packaging/; every path below is anchored at
 # the repo root so the build works no matter the invoking CWD.
 # (PyInstaller execs the spec without __file__; it provides SPECPATH.)
+# Cross-platform: Windows (.ico + glfw3.dll), Linux/macOS (.so, icon skip).
 import os as _os
 
 _SPEC_DIR = SPECPATH  # directory containing this spec file
@@ -12,7 +13,11 @@ _glfw_datas = []
 try:
     import glfw as _glfw_mod
     _gdir = _os.path.dirname(_glfw_mod.__file__)
-    for _dll in ("glfw3.dll", "msvcr120.dll"):
+    # native library shipped inside the glfw wheel, per platform
+    _glfw_natives = (("glfw3.dll", "msvcr120.dll") if _os.name == "nt"
+                     else tuple(_f for _f in (_os.listdir(_gdir) if _os.path.isdir(_gdir) else [])
+                                if _f.endswith(".so") or ".so." in _f))
+    for _dll in _glfw_natives:
         _p = _os.path.join(_gdir, _dll)
         if _os.path.isfile(_p):
             _glfw_datas.append((_p, "glfw"))
@@ -60,5 +65,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=[_os.path.join(_ROOT, 'assets', 'lempo.ico')],
+    icon=[_os.path.join(_ROOT, 'assets', 'lempo.ico')] if _os.name == 'nt' else [],
 )

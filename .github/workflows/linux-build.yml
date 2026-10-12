@@ -1,0 +1,83 @@
+name: Linux Build
+
+# Builds the Linux one-file binary (LempoParticleEditor) on ubuntu:
+# particle_core.so (g++) -> PyInstaller onefile -> xvfb smoke boot ->
+# tar.gz artifact (attached to the GitHub release on v* tags).
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  linux-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install system libs (GL/X for Dear PyGui + Xvfb smoke)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgl1 libegl1 libglx0 libgl1-mesa-dri \
+            libvulkan1 mesa-vulkan-drivers \
+            libxrandr2 libxinerama1 libxcursor1 libxi6 \
+            libxkbcommon-x11-0 libx11-xcb1
+
+      - name: Install Python deps
+        run: pip install dearpygui glfw pillow pyinstaller
+
+      - name: Install Node deps (bundled preview assets)
+        run: npm ci
+
+      - name: Build C++ core (particle_core.so)
+        run: python core/build_core.py
+
+      - name: Package (PyInstaller onefile)
+        run: python -m PyInstaller --noconfirm packaging/LempoParticleEditor.spec
+
+      - name: Smoke boot under Xvfb
+        run: |
+          xvfb-run -a dist/LempoParticleEditor &
+          APP_PID=$!
+          sleep 12
+          if kill -0 "$APP_PID" 2>/dev/null; then
+            echo "smoke boot alive after 12s"
+            kill "$APP_PID" || true
+          else
+            echo "smoke FAILED: process exited early"
+            exit 1
+          fi
+
+      - name: Pack tar.gz
+        run: |
+          tar -C dist -czf LempoParticleEditor-linux-x86_64.tar.gz LempoParticleEditor
+          ls -lh LempoParticleEditor-linux-x86_64.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LempoParticleEditor-linux-x86_64
+          path: LempoParticleEditor-linux-x86_64.tar.gz
+
+      - name: Attach to release (v* tags)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            LempoParticleEditor-linux-x86_64.tar.gz --clobber \
+            || gh release create "${{ github.ref_name }}" \
+            LempoParticleEditor-linux-x86_64.tar.gz \
+            --title "${{ github.ref_name }}" --generate-notes
