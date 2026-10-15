@@ -2,7 +2,7 @@
 # (format 1.1, extension 0.2.0). Run once; re-runs are a no-op per object.
 #
 #  1. F.trail* pure helpers (norm/bake/store/width/color/stride + 2D quads
-#     + 3D strips), wrapped in // <carrot-trails-helpers> markers so the
+#     + 3D strips), wrapped in // <lempo-trails-helpers> markers so the
 #     headless tests can extract the SHIPPED block (mirrors
 #     preview/trails.ts, itself parity-tested against particle_studio).
 #  2. normalizeEmitter passes emitter.trails through.
@@ -24,12 +24,12 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXT = os.path.join(ROOT, "AdvancedParticleEmitter.json")
 
-MARK_A = "// <carrot-trails-helpers>"
-MARK_B = "// </carrot-trails-helpers>"
-MARK_3A = "// <carrot-trails-3d>"
-MARK_3B = "// </carrot-trails-3d>"
+MARK_A = "// <lempo-trails-helpers>"
+MARK_B = "// </lempo-trails-helpers>"
+MARK_3A = "// <lempo-trails-3d>"
+MARK_3B = "// </lempo-trails-3d>"
 
-TRAIL_CORE_JS = r"""// <carrot-trails-helpers>
+TRAIL_CORE_JS = r"""// <lempo-trails-helpers>
 F.trailNorm = F.trailNorm || function(raw) {
   var d = (raw && typeof raw === "object") ? raw : {};
   var en = !!d.enabled;
@@ -371,9 +371,9 @@ F.trailDraw2D = F.trailDraw2D || function(data) {
     drawn++;
   }
 };
-// </carrot-trails-helpers>"""
+// </lempo-trails-helpers>"""
 
-TRAIL_3D_JS = r"""// <carrot-trails-3d>
+TRAIL_3D_JS = r"""// <lempo-trails-3d>
 F.trailRibbonIndex = F.trailRibbonIndex || function() {
   if (F._trailIdx) return F._trailIdx;
   var idx = [], s, q;
@@ -509,7 +509,7 @@ F.trailDispose3D = F.trailDispose3D || function(data) {
     data.trailMat = null;
   } catch (e) {}
 };
-// </carrot-trails-3d>"""
+// </lempo-trails-3d>"""
 
 
 def _indent(block, prefix="  "):

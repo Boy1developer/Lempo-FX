@@ -20,4 +20,4 @@ package-lock.json linguist-generated
 *.lib binary linguist-vendored
 *.lnk binary linguist-vendored
 *.pyc binary linguist-vendored
-carrot_debug.log linguist-vendored
+lempo_debug.log linguist-vendored

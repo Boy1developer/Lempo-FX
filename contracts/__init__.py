@@ -1,1 +1,1 @@
-# Carrot Particle Editor shared contracts (single source: contracts.json).
+# Lempo Particle Editor shared contracts (single source: contracts.json).

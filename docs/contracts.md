@@ -11,7 +11,7 @@ Everything that must stay identical across Python, C++, the browser preview, and
 ## Consumers
 
 - **Python** (`editor/particle_studio.py`) and the **C++ core** (`core/particle_core.cpp`) import the generated files directly.
-- **TypeScript** (`preview/`, `carrots-runtime/`) and the **GDevelop extension** keep literal copies for bundling reasons; the check script verifies they match.
+- **TypeScript** (`preview/`, `lempo-runtime/`) and the **GDevelop extension** keep literal copies for bundling reasons; the check script verifies they match.
 
 ## Export format v1.1
 

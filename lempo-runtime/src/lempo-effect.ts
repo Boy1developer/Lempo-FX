@@ -1,16 +1,16 @@
 /**
- * Carrot particle effect schema — typed loader for Carrots Game Engine.
+ * Lempo particle effect schema — typed loader for the GDevelop GDJS runtime.
  *
- * Mirrors the v1.1 export format produced by Carrot Particle Editor
+ * Mirrors the v1.1 export format produced by Lempo Particle Editor
  * (see `sample_effect.json`) and consumed by `AdvancedParticleEmitter`
  * (`2d: needShape` / `3d: mesh swap`, hyphenated easing).
  *
- * Carrots GDJS runtime is TypeScript (PixiJS 2D / Three.js 3D), so this
+ * The GDevelop GDJS runtime is TypeScript (PixiJS 2D / Three.js 3D), so this
  * package is the ingestion path: strict `tsc` types + validation at the
  * boundary, zero `any` leaking into engine code.
  */
 
-export const CARROT_EFFECT_VERSION = "1.1" as const;
+export const LEMPO_EFFECT_VERSION = "1.1" as const;
 
 export const SHAPE_ORDER = [
   "circle",
@@ -104,17 +104,17 @@ export interface EffectState {
   customShapeRefs: string[];
 }
 
-export interface CarrotEffect {
+export interface LempoEffect {
   version: string;
   type: EffectType;
   emitter: Emitter;
   states: EffectState[];
 }
 
-export class CarrotEffectError extends Error {
+export class LempoEffectError extends Error {
   constructor(message: string) {
-    super(`CarrotEffect: ${message}`);
-    this.name = "CarrotEffectError";
+    super(`LempoEffect: ${message}`);
+    this.name = "LempoEffectError";
   }
 }
 
@@ -224,7 +224,7 @@ function parseEmitter(raw: unknown): Emitter {
 
 function parseState(raw: unknown, index: number, is3D: boolean): EffectState {
   if (!isRecord(raw)) {
-    throw new CarrotEffectError(`states[${index}] must be an object`);
+    throw new LempoEffectError(`states[${index}] must be an object`);
   }
   const ap: Record<string, unknown> = isRecord(raw["appearance"]) ? raw["appearance"] : {};
   const mv: Record<string, unknown> = isRecord(raw["movement"]) ? raw["movement"] : {};
@@ -261,21 +261,21 @@ function parseState(raw: unknown, index: number, is3D: boolean): EffectState {
 
 /**
  * Validate + normalize unknown input into a typed effect.
- * Throws CarrotEffectError on structural problems (not an object,
+ * Throws LempoEffectError on structural problems (not an object,
  * missing/empty states array, malformed JSON handled by the caller below).
  */
-export function parseCarrotEffect(data: unknown): CarrotEffect {
+export function parseLempoEffect(data: unknown): LempoEffect {
   if (!isRecord(data)) {
-    throw new CarrotEffectError("effect must be a JSON object");
+    throw new LempoEffectError("effect must be a JSON object");
   }
   const type = parseType(data["type"]);
   const is3D = type === "3d";
   if (!Array.isArray(data["states"]) || data["states"].length === 0) {
-    throw new CarrotEffectError("effect.states must be a non-empty array");
+    throw new LempoEffectError("effect.states must be a non-empty array");
   }
   const states = (data["states"] as unknown[]).map((s, i) => parseState(s, i, is3D));
   return {
-    version: text(data["version"], CARROT_EFFECT_VERSION),
+    version: text(data["version"], LEMPO_EFFECT_VERSION),
     type,
     emitter: parseEmitter(data["emitter"]),
     states,
@@ -283,17 +283,17 @@ export function parseCarrotEffect(data: unknown): CarrotEffect {
 }
 
 /** Parse raw JSON text (file content / fetch body) into a typed effect. */
-export function loadCarrotEffectFromJsonText(jsonText: string): CarrotEffect {
+export function loadLempoEffectFromJsonText(jsonText: string): LempoEffect {
   let data: unknown;
   try {
     data = JSON.parse(jsonText) as unknown;
   } catch {
-    throw new CarrotEffectError("invalid JSON text");
+    throw new LempoEffectError("invalid JSON text");
   }
-  return parseCarrotEffect(data);
+  return parseLempoEffect(data);
 }
 
 /** Serialize back to the v1.1 JSON shape the editor and engine share. */
-export function serializeCarrotEffect(effect: CarrotEffect): string {
+export function serializeLempoEffect(effect: LempoEffect): string {
   return JSON.stringify(effect);
 }

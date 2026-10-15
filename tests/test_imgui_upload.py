@@ -14,7 +14,7 @@ try:
     import studio_imgui as S
 
     # 1) OBJ parse
-    tmp = tempfile.mkdtemp(prefix="carrot_up_")
+    tmp = tempfile.mkdtemp(prefix="lempo_up_")
     obj = os.path.join(tmp, "box.obj")
     with open(obj, "w") as f:
         f.write("# cube-ish\nv 0 0 0\nv 2 0 0\nv 2 2 0\nv 0 2 0\n"

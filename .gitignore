@@ -31,5 +31,5 @@ incoming-2d/
 # Backups
 *.bak
 
-# Compiled runtime output (rebuilt via tsc, see carrots-runtime/README.md)
-carrots-runtime/dist/
+# Compiled runtime output (rebuilt via tsc, see lempo-runtime/README.md)
+lempo-runtime/dist/

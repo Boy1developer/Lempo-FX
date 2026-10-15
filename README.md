@@ -202,7 +202,7 @@ Everything that must stay identical across Python, C++, the browser preview, and
 | `core/` | C++ simulation core (`particle_core.cpp`) + parity and behavior tests |
 | `render/` | In-editor OpenGL renderer and render tests |
 | `preview/` | Browser fast preview (Three.js / PixiJS) and its tests |
-| `carrots-runtime/` | TypeScript runtime copy used by the GDevelop extension |
+| `lempo-runtime/` | TypeScript runtime copy used by the GDevelop extension |
 | `contracts/` | Shared contracts (`contracts.json`) and generated bindings (`gen/`) |
 | `assets/` | App icon and bundled presets (`presets/trails/`) |
 | `presets/` | Effect presets |

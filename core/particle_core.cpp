@@ -36,8 +36,8 @@ inline std::string lower_str(const std::string &s) {
 // Canonical shape order (generated contract — mirrors particle_studio.SHAPE_ORDER).
 int shape_index(const std::string &s) {
     std::string l = lower_str(s);
-    for (int i = 0; i < CARROT_SHAPE_COUNT; i++)
-        if (l == CARROT_SHAPE_ORDER[i]) return i;
+    for (int i = 0; i < LEMPO_SHAPE_COUNT; i++)
+        if (l == LEMPO_SHAPE_ORDER[i]) return i;
     return 0;
 }
 
@@ -1335,10 +1335,10 @@ PyMODINIT_FUNC PyInit_particle_core(void) {
     PyModule_AddObject(m, "Engine", (PyObject *)&PyEngineType);
     PyModule_AddStringConstant(m, "__version__", "1.0");
     // canonical shape order (generated contract, shared with Python)
-    PyObject *lst = PyList_New(CARROT_SHAPE_COUNT);
+    PyObject *lst = PyList_New(LEMPO_SHAPE_COUNT);
     if (!lst) { Py_DECREF(m); return nullptr; }
-    for (int i = 0; i < CARROT_SHAPE_COUNT; i++)
-        PyList_SET_ITEM(lst, i, PyUnicode_FromString(CARROT_SHAPE_ORDER[i]));
+    for (int i = 0; i < LEMPO_SHAPE_COUNT; i++)
+        PyList_SET_ITEM(lst, i, PyUnicode_FromString(LEMPO_SHAPE_ORDER[i]));
     PyModule_AddObject(m, "SHAPE_ORDER", lst);
     return m;
 }

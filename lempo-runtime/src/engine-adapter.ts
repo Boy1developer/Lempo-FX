@@ -1,16 +1,16 @@
 /**
  * Engine-ready adapter — validated, NaN-free view of an effect for the
- * Carrots GDJS runtime (TypeScript).
+ * GDevelop GDJS runtime (TypeScript).
  *
- * `parseCarrotEffect` guarantees structure; this layer applies the numeric
+ * `parseLempoEffect` guarantees structure; this layer applies the numeric
  * contracts the renderers rely on (2d: `needShape` pixi layer,
  * 3d: mesh-swap three layer): finite numbers only, clamped ranges,
  * precomputed keyframe lifetime (death state excluded, extension semantics).
  */
 
-import type { CarrotEffect, EffectType } from "./carrot-effect.js";
+import type { LempoEffect, EffectType } from "./lempo-effect.js";
 
-export const CARROT_RUNTIME_VERSION = "1.0.0" as const;
+export const LEMPO_RUNTIME_VERSION = "1.0.0" as const;
 
 /** Hard pool cap shared with the editor sim (`MAX_POOL`). */
 export const MAX_PARTICLES = 4000;
@@ -57,7 +57,7 @@ export interface NormalizedEffect {
   blendingMode: string;
 }
 
-export function normalizeEffect(effect: CarrotEffect): NormalizedEffect {
+export function normalizeEffect(effect: LempoEffect): NormalizedEffect {
   const keyframes: NormalizedKeyframe[] = effect.states.map((s) => ({
     duration: s.duration,
     shape: s.shape,

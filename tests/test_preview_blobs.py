@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "..", "editor"))
 import particle_studio as PS
 
-tmp = tempfile.mkdtemp(prefix="carrot_blob_")
+tmp = tempfile.mkdtemp(prefix="lempo_blob_")
 glb = os.path.join(tmp, "coin.glb")
 payload = b"glTF-BYTES-1234"
 with open(glb, "wb") as f:

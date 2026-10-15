@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import {
-  loadCarrotEffectFromJsonText,
+  loadLempoEffectFromJsonText,
   normalizeEffect,
 } from "./dist/index.js";
 
 const sampleUrl = new URL("../sample_effect.json", import.meta.url);
-const effect = loadCarrotEffectFromJsonText(await readFile(sampleUrl, "utf8"));
+const effect = loadLempoEffectFromJsonText(await readFile(sampleUrl, "utf8"));
 const norm = normalizeEffect(effect);
 console.log(
   `states=${effect.states.length} type=${effect.type} ` +
@@ -14,7 +14,7 @@ console.log(
 
 let threw = false;
 try {
-  loadCarrotEffectFromJsonText("{not json");
+  loadLempoEffectFromJsonText("{not json");
 } catch {
   threw = true;
 }
@@ -23,7 +23,7 @@ console.log("invalid-json-throws=ok");
 
 let emptyThrew = false;
 try {
-  loadCarrotEffectFromJsonText('{"version":"1.0","type":"2d","states":[]}');
+  loadLempoEffectFromJsonText('{"version":"1.0","type":"2d","states":[]}');
 } catch {
   emptyThrew = true;
 }

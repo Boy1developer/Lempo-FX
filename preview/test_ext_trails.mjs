@@ -31,9 +31,9 @@ function chunksOf(name) {
   return out;
 }
 function trailBlock(name) {
-  const c = chunksOf(name).find((x) => x.includes("// <carrot-trails-helpers>"));
+  const c = chunksOf(name).find((x) => x.includes("// <lempo-trails-helpers>"));
   if (!c) fail("helpers missing in " + name);
-  const a = "// <carrot-trails-helpers>", b = "// </carrot-trails-helpers>";
+  const a = "// <lempo-trails-helpers>", b = "// </lempo-trails-helpers>";
   return c.slice(c.indexOf(a), c.indexOf(b) + b.length) + ";";
 }
 const block2D = trailBlock("AvancedParticleEmitter2D");

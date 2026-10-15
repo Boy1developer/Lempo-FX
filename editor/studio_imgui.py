@@ -4250,7 +4250,7 @@ def handle_mouse(lx, ly, hover, W, H, cx, cy, zoom_ok=True):
             APP._gizmo = None
         else:
             hit = gizmo_hit(lx, ly, W, H, cx, cy)
-            if os.environ.get("CARROT_DEBUG_MOUSE"):
+            if os.environ.get("LEMPO_DEBUG_MOUSE"):
                 try:
                     _mx2, _my2 = dpg.get_mouse_pos(local=False)
                 except Exception:
@@ -4462,7 +4462,7 @@ def frame():
         # zoom gate: cursor must be inside the viewport rect AND outside
         # the panel, even if the fuzzy hover flag got polluted
         zoom_ok = bool(hover) and bool(in_r) and not _side
-        if os.environ.get("CARROT_DEBUG_MOUSE") and \
+        if os.environ.get("LEMPO_DEBUG_MOUSE") and \
                 not getattr(APP, "_geo_logged", False) and \
                 time.time() - getattr(APP, "_t_start", time.time()) > 5:
             APP._geo_logged = True
@@ -4576,7 +4576,7 @@ def frame():
             if APP._split is not None or APP._split_hover:
                 dpg.draw_line([2, 0], [2, H], color=[123, 97, 255, 255],
                               thickness=3, parent="vp_draw")
-            if os.environ.get("CARROT_DEBUG_MOUSE"):
+            if os.environ.get("LEMPO_DEBUG_MOUSE"):
                 try:
                     dpg.draw_circle([lx, ly], 12, color=[0, 255, 0, 255],
                                     thickness=2, parent="vp_draw",
@@ -4630,7 +4630,7 @@ def frame():
                     json.dump(ce, f, ensure_ascii=False)
             except Exception:
                 pass
-        auto = os.environ.get("CARROT_AUTO")
+        auto = os.environ.get("LEMPO_AUTO")
         if auto in MODE_BY_ID and dpg.is_item_shown("chooser_win"):
             choose(auto)
     except Exception:
@@ -4643,7 +4643,7 @@ def main():
     dpg.create_context()
     dpg.create_viewport(title=f"Lempo Particle Editor v{APP_VERSION} [{BUILD_ID}]",
                         width=1280, height=800)
-    _pos = os.environ.get("CARROT_WINPOS", "")
+    _pos = os.environ.get("LEMPO_WINPOS", "")
     try:
         _x, _y = (int(v) for v in _pos.split(","))
         dpg.set_viewport_pos([_x, _y])

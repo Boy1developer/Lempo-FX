@@ -56,7 +56,7 @@ try:
     import json as _json
     import os as _os
     import tempfile as _tf
-    _tmp = _os.path.join(_tf.mkdtemp(prefix="carrot_export_"), "roundtrip.json")
+    _tmp = _os.path.join(_tf.mkdtemp(prefix="lempo_export_"), "roundtrip.json")
     _old_fp = S.APP.filepath
     try:
         assert S._write_path(_tmp) == _tmp

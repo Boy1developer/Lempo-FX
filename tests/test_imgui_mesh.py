@@ -12,7 +12,7 @@ try:
     import mesh_cache
     import studio_imgui as S
 
-    tmp = tempfile.mkdtemp(prefix="carrot_mesh_")
+    tmp = tempfile.mkdtemp(prefix="lempo_mesh_")
     glb = os.path.join(tmp, "quad.glb")
     verts = [-2.0, 0.0, 0.0, 6.0, 0.0, 0.0,
              6.0, 4.0, 0.0, -2.0, 4.0, 0.0]

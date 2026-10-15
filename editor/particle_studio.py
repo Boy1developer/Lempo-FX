@@ -61,14 +61,14 @@ except Exception:
 
 VERSION = _GEN_VERSION if _HAVE_CONTRACTS else "1.0"  # effect JSON format (extension contract — do NOT bump with the app)
 APP_VERSION = "0.2.0"  # Lempo Particle Editor release version (title bar)
-BUILD_ID = "b20261003-v020"  # bump on every shipped change; shown in title
+BUILD_ID = "b20261015-v020"  # bump on every shipped change; shown in title
 
 
 def debug_log(*parts):
     """Append-only diagnostics file (works frozen: TEMP dir). Never raises."""
     try:
         p = os.path.join(os.environ.get("TEMP", os.path.expanduser("~")),
-                         "carrot_debug.log")
+                         "lempo_debug.log")
         with open(p, "a", encoding="utf-8") as f:
             f.write(time.strftime("[%Y-%m-%d %H:%M:%S] ") +
                     " ".join(str(x) for x in parts) + "\n")
@@ -153,7 +153,7 @@ def _seg_dist(px, py, ax, ay, bx, by):
 
 
 def build_app_icon_png(size=64):
-    """Procedural app icon (Carrot mark: dark panel + orbit + carrot), pure
+    """Procedural app icon (Lempo mark: dark panel + orbit + emblem), pure
     stdlib PNG encoder (zlib+struct). Returns PNG bytes (RGBA). Used for the
     window/taskbar icon when no assets/app_icon.png file is present."""
     import struct
@@ -213,7 +213,7 @@ def build_app_icon_png(size=64):
     for dx, dy, r in ((-19, -2, 2.2), (19, -9, 2.2), (15, 1, 1.6),
                       (-13, 5, 1.6), (21, 9, 2.6), (-11, 13, 2.2)):
         disc(ocx + dx * u, ocy + dy * u, r * u, (255, 179, 0))
-    # carrot diamond halves
+    # emblem diamond halves
     T, R, B, L = (32 * u, 19 * u), (44 * u, 32 * u), (32 * u, 52 * u), (20 * u, 32 * u)
     right = (T[0], T[1], R[0], R[1], B[0], B[1])
     left = (T[0], T[1], B[0], B[1], L[0], L[1])
@@ -1218,10 +1218,10 @@ class StudioApp(tk.Tk):
     # ================= startup mode chooser =================
     def _logo_photo(self, target_h):
         """Use assets/app_icon.png (exact artwork, if the user drops it in)
-        else carrot_logo.png / carrot.png / logo.png next to the script.
+        else lempo_logo.png / lempo.png / logo.png next to the script.
         Returns PhotoImage or None (vector fallback)."""
         base = app_base_dir()
-        for name in ("assets/app_icon.png", "carrot_logo.png", "carrot.png", "logo.png"):
+        for name in ("assets/app_icon.png", "lempo_logo.png", "lempo.png", "logo.png"):
             p = os.path.join(base, name)
             if os.path.isfile(p):
                 try:
@@ -1250,7 +1250,7 @@ class StudioApp(tk.Tk):
 
     def _draw_app_mark(self, cv, cx, cy, s):
         """Large app mark for the chooser: dark editor window + orbit ring +
-        glow dots/sparkles + carrot, on the page bg (no white box)."""
+        glow dots/sparkles + emblem, on the page bg (no white box)."""
         x0, y0, x1, y1 = cx - s, cy - s * 0.72, cx + s, cy + s * 0.72
         try:
             cv.create_rectangle(x0, y0, x1, y1, fill="#14161d",
@@ -1267,7 +1267,7 @@ class StudioApp(tk.Tk):
                 cv.create_oval(x0 + s * (0.1 + i * 0.12) - 4, y0 + s * 0.06 - 4,
                                x0 + s * (0.1 + i * 0.12) + 4, y0 + s * 0.06 + 4,
                                fill=col, outline="")
-            # back half of the orbit ring (behind carrot)
+            # back half of the orbit ring (behind emblem)
             cv.create_arc(x0 - s * 0.28, cy - s * 0.6, x1 + s * 0.28, cy + s * 0.6,
                           start=195, extent=150, outline="#ff8200",
                           width=max(3, int(s * 0.07)), style="arc")
@@ -1279,19 +1279,19 @@ class StudioApp(tk.Tk):
                                fill="#ffb300", outline="")
             self._sparkle(cv, cx - s * 0.62, cy - s * 0.3, s * 0.09)
             self._sparkle(cv, cx + s * 0.68, cy + s * 0.42, s * 0.075)
-            # carrot on top
-            self._draw_carrot(cv, cx, cy + s * 0.06, s * 0.44)
-            # front half of the ring (over carrot base)
+            # emblem on top
+            self._draw_lempo(cv, cx, cy + s * 0.06, s * 0.44)
+            # front half of the ring (over emblem base)
             cv.create_arc(x0 - s * 0.24, cy - s * 0.52, x1 + s * 0.24, cy + s * 0.52,
                           start=15, extent=150, outline="#ffc93c",
                           width=max(2, int(s * 0.045)), style="arc")
         except Exception:
             pass
 
-    def _draw_carrot(self, cv, cx, cy, s):
-        """Vector carrot logo (crisp at any size, no image file → no white box).
+    def _draw_lempo(self, cv, cx, cy, s):
+        """Vector Lempo emblem (crisp at any size, no image file → no white box).
         Faceted orange body (dark left / bright right) + green spiky crown +
-        black outlines + soft offset shadow, like the Carrot Studio artwork."""
+        black outlines + soft offset shadow, like the Lempo artwork."""
         lw = max(2, int(s * 0.05))
         # soft drop shadow (stippled = fake translucency on dark bg)
         tx, ty = cx, cy - s * 0.30
@@ -1348,7 +1348,7 @@ class StudioApp(tk.Tk):
             logo_cv.destroy()
         else:
             self._draw_app_mark(logo_cv, 150, 122, 100)
-        tk.Label(center, text="CARROT", fg="#ff7a00", bg=CHOOSER_BG,
+        tk.Label(center, text="LEMPO", fg="#ff7a00", bg=CHOOSER_BG,
                  font=("Segoe UI", 22, "bold")).pack(pady=(2, 0))
         tk.Label(center, text="PARTICLE EDITOR", fg="#00c853", bg=CHOOSER_BG,
                  font=("Segoe UI", 12, "bold")).pack(pady=(0, 2))
@@ -1460,7 +1460,7 @@ class StudioApp(tk.Tk):
             _logo = tk.Canvas(bar, width=26, height=26, bg="#23242f", highlightthickness=0)
             _logo.pack(side="left", padx=(10, 0))
             try:
-                self._draw_carrot(_logo, 13, 12, 6.5)
+                self._draw_lempo(_logo, 13, 12, 6.5)
             except Exception:
                 pass
         tk.Label(bar, text="Lempo", fg="#e15dff", bg="#23242f", font=FONT_LOGO).pack(side="left", padx=(4, 0))

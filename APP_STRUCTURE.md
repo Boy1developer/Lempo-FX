@@ -5,7 +5,7 @@
 ## 1) شجرة الملفات (بدون `node_modules` / `dist` / `__pycache__`)
 
 ```
-Carrot-Particle-Editor/
+Lempo-FX/
 ├── editor/
 │   ├── studio_imgui.py             # الإديتور الرئيسي (Dear PyGui/ImGui + drawlist viewport)
 │   └── particle_studio.py          # نسخة Tk الاحتياطية + طبقة اللوجيك المشتركة
@@ -40,7 +40,7 @@ Carrot-Particle-Editor/
 │   └── test_cost.py                # قياس تكلفة photo.configure (سبب dirty-region)
 │
 ├── preview/
-│   ├── preview.html                # قالب صفحة المعاينة (هيدر 🥕 Carrot Studio)
+│   ├── preview.html                # قالب صفحة المعاينة (هيدر Lempo)
 │   ├── preview.ts / preview.js     # محرك المعاينة + morph + zone/cone (452 سطر TS)
 │   ├── main.ts / main.js           # منطق الصفحة: boot embed + semantic poll (219 سطر)
 │   ├── three_scene.ts / .js        # طبقة WebGL ثلاثية الأبعاد مضيئة (282 سطر)
@@ -85,7 +85,7 @@ Carrot-Particle-Editor/
 | `sample_effect.json` | مثال export متوافق v1.0 |
 | `sample_trail_effect.json` | مثال trails (width curve + color gradient + texture scroll، 3D additive) |
 | `presets/trail_*.json` | بريسيتات الـ trails (Comet/Sword/Smoke/Beam/Neon/Rocket/Wand — ملفات effect عادية تُشحن مع الـ exe) |
-| `assets/download.png` | أرت قديم (شعار Carrot) — لم يعد مصدر الأيقونات (المصدر الآن `icon.jpg`) |
+| `assets/download.png` | أرت قديم (شعار Lempo الأول) — لم يعد مصدر الأيقونات (المصدر الآن `icon.jpg`) |
 | `package.json` | `three@0.186 + pixi.js@8.21 + typescript@7 + esbuild@0.28` |
 | `particle_core.pyd` | نواة C++ المبنية فعليًا (غير ملتزمة) |
 | `particle_core.lib/.pdb` | مخلفات بناء MSVC (غير مطلوبة للتشغيل) |
@@ -111,7 +111,7 @@ Carrot-Particle-Editor/
 
 | الملف | الدور | سطور |
 |---|---|---:|
-| `preview.html` | القالب المضمّن في الـ exe — هيدر `🥕 Carrot Studio` برتقالي + `boot-effect` | 64 |
+| `preview.html` | القالب المضمّن في الـ exe — هيدر `Lempo` + `boot-effect` | 64 |
 | `preview.ts` | `ParticleEngine`: قيم birth→death (easing hyphenated) + shape flip عند raw≥0.5 + zone/cone | 452 |
 | `main.ts` | boot JSON مدمج (بدون fetch) + poll دلالي لـ `last_effect.json` — مصدر واحد | 219 |
 | `three_scene.ts` | طبقة 3D مضيئة (lights/shadows/guides) + تبديل mesh لكل state | 282 |

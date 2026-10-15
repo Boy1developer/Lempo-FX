@@ -1,12 +1,12 @@
 export {
-  CARROT_EFFECT_VERSION,
+  LEMPO_EFFECT_VERSION,
   SHAPE_ORDER,
   EASINGS,
-  CarrotEffectError,
-  parseCarrotEffect,
-  loadCarrotEffectFromJsonText,
-  serializeCarrotEffect,
-} from "./carrot-effect.js";
+  LempoEffectError,
+  parseLempoEffect,
+  loadLempoEffectFromJsonText,
+  serializeLempoEffect,
+} from "./lempo-effect.js";
 export type {
   ShapeName,
   Easing,
@@ -20,11 +20,11 @@ export type {
   Appearance,
   Movement,
   EffectState,
-  CarrotEffect,
-} from "./carrot-effect.js";
+  LempoEffect,
+} from "./lempo-effect.js";
 
 export {
-  CARROT_RUNTIME_VERSION,
+  LEMPO_RUNTIME_VERSION,
   MAX_PARTICLES,
   normalizeEffect,
 } from "./engine-adapter.js";

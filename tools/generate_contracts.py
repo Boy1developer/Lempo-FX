@@ -14,7 +14,7 @@ Outputs (deterministic, no timestamps — byte-stable):
 
 Consumer wiring:
   Python + C++ import the generated files directly.
-  TypeScript (preview/, carrots-runtime/) and the GDevelop extension keep
+  TypeScript (preview/, lempo-runtime/) and the GDevelop extension keep
   their own copies for build reasons (rootDir/bundling); --check verifies
   their embedded literals match contracts.json instead of rewriting them.
 """
@@ -66,26 +66,26 @@ def h_file(c):
     L.append("#pragma once")
     L.append("")
     L.append("// Export format version (must match effect JSON \"version\").")
-    L.append('constexpr const char* CARROT_EXPORT_VERSION = "%s";' % c["export_version"])
+    L.append('constexpr const char* LEMPO_EXPORT_VERSION = "%s";' % c["export_version"])
     L.append("")
     L.append("// Particle record layout: %d fields (see RECORD_FIELDS)." % len(c["record_fields"]))
-    L.append("constexpr int CARROT_RECORD_FIELD_COUNT = %d;" % len(c["record_fields"]))
+    L.append("constexpr int LEMPO_RECORD_FIELD_COUNT = %d;" % len(c["record_fields"]))
     L.append("")
-    L.append("constexpr int CARROT_SHAPE_COUNT = %d;" % n)
-    L.append("constexpr const char* CARROT_SHAPE_ORDER[CARROT_SHAPE_COUNT] = %s;"
+    L.append("constexpr int LEMPO_SHAPE_COUNT = %d;" % n)
+    L.append("constexpr const char* LEMPO_SHAPE_ORDER[LEMPO_SHAPE_COUNT] = %s;"
              % _cxx_list(c["shape_order"]))
     L.append("")
-    L.append("constexpr int CARROT_EASING_COUNT = %d;" % len(c["easings"]))
-    L.append("constexpr const char* CARROT_EASINGS[CARROT_EASING_COUNT] = %s;"
+    L.append("constexpr int LEMPO_EASING_COUNT = %d;" % len(c["easings"]))
+    L.append("constexpr const char* LEMPO_EASINGS[LEMPO_EASING_COUNT] = %s;"
              % _cxx_list(c["easings"]))
     L.append("")
-    L.append("constexpr int CARROT_BLEND_MODE_COUNT = %d;" % len(c["blend_modes"]))
-    L.append("constexpr const char* CARROT_BLEND_MODES[CARROT_BLEND_MODE_COUNT] = %s;"
+    L.append("constexpr int LEMPO_BLEND_MODE_COUNT = %d;" % len(c["blend_modes"]))
+    L.append("constexpr const char* LEMPO_BLEND_MODES[LEMPO_BLEND_MODE_COUNT] = %s;"
              % _cxx_list(c["blend_modes"]))
     L.append("")
     L.append("// Shape cross-fade window (raw segment time).")
-    L.append("constexpr double CARROT_MORPH_LO = %r;" % (c["morph_window"]["lo"],))
-    L.append("constexpr double CARROT_MORPH_HI = %r;" % (c["morph_window"]["hi"],))
+    L.append("constexpr double LEMPO_MORPH_LO = %r;" % (c["morph_window"]["lo"],))
+    L.append("constexpr double LEMPO_MORPH_HI = %r;" % (c["morph_window"]["hi"],))
     return "\n".join(L) + "\n"
 
 
@@ -96,7 +96,7 @@ def _ts_list(items):
 def ts_file(c):
     L = []
     L.append("// %s." % HEADER)
-    L.append("// Import path (preview + carrots-runtime tsconfigs allow ../contracts):")
+    L.append("// Import path (preview + lempo-runtime tsconfigs allow ../contracts):")
     L.append('//   import { SHAPE_ORDER } from "../../contracts/gen/contracts";')
     L.append('export const EXPORT_VERSION = "%s" as const;' % c["export_version"])
     L.append("export const RECORD_FIELDS = %s as const;" % _ts_list(c["record_fields"]))
@@ -118,7 +118,7 @@ def ts_file(c):
 def schema_file(c):
     schema = {
         "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "CarrotParticleEffect",
+        "title": "LempoParticleEffect",
         "type": "object",
         "required": ["version", "type", "emitter", "states"],
         "properties": {
@@ -306,17 +306,17 @@ def check_consumers(c):
     errs = []
     # 1) C++ must include the generated header (single source, not a copy)
     cpp = _read(os.path.join("core", "particle_core.cpp"))
-    if "contracts/gen/contracts.h" not in cpp and "CARROT_SHAPE_ORDER" not in cpp:
+    if "contracts/gen/contracts.h" not in cpp and "LEMPO_SHAPE_ORDER" not in cpp:
         errs.append("core/particle_core.cpp does not use contracts/gen/contracts.h")
-    # 2) carrots-runtime keeps its own literals (rootDir) — must match
-    ts = _read(os.path.join("carrots-runtime", "src", "carrot-effect.ts"))
+    # 2) lempo-runtime keeps its own literals (rootDir) — must match
+    ts = _read(os.path.join("lempo-runtime", "src", "lempo-effect.ts"))
     if _py_str_list(ts, "SHAPE_ORDER") != c["shape_order"]:
-        errs.append("carrots-runtime SHAPE_ORDER drifted from contracts.json")
+        errs.append("lempo-runtime SHAPE_ORDER drifted from contracts.json")
     if _py_str_list(ts, "EASINGS") != c["easings"]:
-        errs.append("carrots-runtime EASINGS drifted from contracts.json")
-    m = re.search(r'CARROT_EFFECT_VERSION\s*=\s*"([^"]+)"', ts)
+        errs.append("lempo-runtime EASINGS drifted from contracts.json")
+    m = re.search(r'LEMPO_EFFECT_VERSION\s*=\s*"([^"]+)"', ts)
     if not m or m.group(1) != c["export_version"]:
-        errs.append("carrots-runtime CARROT_EFFECT_VERSION drifted")
+        errs.append("lempo-runtime LEMPO_EFFECT_VERSION drifted")
     # 3) extension keeps its own literals (bundled JSON) — choice lists must match
     ext = _read("AdvancedParticleEmitter.json")
     for want in [c["blend_modes"], ["JSON"] + c["blend_modes"]]:

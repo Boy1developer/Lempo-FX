@@ -1,5 +1,5 @@
 // DO NOT EDIT — generated from contracts/contracts.json by tools/generate_contracts.py.
-// Import path (preview + carrots-runtime tsconfigs allow ../contracts):
+// Import path (preview + lempo-runtime tsconfigs allow ../contracts):
 //   import { SHAPE_ORDER } from "../../contracts/gen/contracts";
 export const EXPORT_VERSION = "1.1" as const;
 export const RECORD_FIELDS = [

@@ -12,6 +12,7 @@ import copy
 import glob
 import json
 import os
+import shutil
 import time
 
 try:
@@ -52,11 +53,33 @@ CAT_IDS = [c for c, _ in CATS]
 FALLBACK_REG = {}  # id -> template dict (only when C++ API missing)
 
 
+def _legacy_user_dir():
+    # Pre-rebrand location (kept ONLY to auto-migrate existing user presets
+    # once; never written to anymore).
+    try:
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "CarrotParticleEditor", "trail_presets")
+    except Exception:
+        return ""
+
+
 def user_dir():
     try:
         base = os.environ.get("APPDATA") or os.path.expanduser("~")
-        p = os.path.join(base, "CarrotParticleEditor", "trail_presets")
+        p = os.path.join(base, "LempoParticleEditor", "trail_presets")
         os.makedirs(p, exist_ok=True)
+        legacy = _legacy_user_dir()
+        if legacy and os.path.isdir(legacy):
+            try:
+                for name in sorted(os.listdir(legacy)):
+                    if not name.endswith(".json"):
+                        continue
+                    src = os.path.join(legacy, name)
+                    dst = os.path.join(p, name)
+                    if os.path.isfile(src) and not os.path.exists(dst):
+                        shutil.copy2(src, dst)
+            except Exception:
+                pass
         return p
     except Exception:
         return ""
