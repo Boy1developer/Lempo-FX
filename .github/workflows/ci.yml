@@ -87,6 +87,7 @@ jobs:
           node preview/test_seed.mjs
           node preview/test_fields.mjs
           node preview/test_ext_runtime.mjs
+          node preview/test_ext_worldscale.mjs
 
       - name: Runtime typecheck + loader test
         run: |

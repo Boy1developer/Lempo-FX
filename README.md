@@ -154,7 +154,7 @@ This produces `dist/LempoParticleEditor.exe` plus the `Lempo Particle Editor` de
 ### 2. Use effects in GDevelop
 
 1. **Design** your effect in Lempo Particle Editor and export it as a `.json` file.
-2. **Import** `AdvancedParticleEmitter.json` into your GDevelop project as an extension.
+2. **Import** `AdvancedParticleEmitter.json` into your GDevelop project as an extension (requires GDevelop **≥ 5.6.284** — older versions render 3D particles at the wrong scale).
 3. **Add** the emitter object to your scene and set its **ParticleJSON** resource to the exported file. If the effect uses a custom model, also set the **Models GLB** resource to your `.glb`.
 4. **Run** the preview and enjoy your effect in-game.
 
