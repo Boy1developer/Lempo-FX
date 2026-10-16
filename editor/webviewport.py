@@ -130,6 +130,22 @@ class _Win32(object):
                                                  ctypes.POINTER(
                                                      wintypes.DWORD)]
         u32.GetWindowThreadProcessId.restype = wintypes.DWORD
+        u32.PostMessageW.argtypes = [wintypes.HWND, ctypes.c_uint,
+                                     wintypes.WPARAM, wintypes.LPARAM]
+        u32.PostMessageW.restype = wintypes.BOOL
+        try:
+            _k32 = ctypes.windll.kernel32
+            _k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL,
+                                         wintypes.DWORD]
+            _k32.OpenProcess.restype = wintypes.HANDLE
+            _k32.TerminateProcess.argtypes = [wintypes.HANDLE,
+                                              ctypes.c_uint]
+            _k32.TerminateProcess.restype = wintypes.BOOL
+            _k32.CloseHandle.argtypes = [wintypes.HANDLE]
+            _k32.CloseHandle.restype = wintypes.BOOL
+            self._k32 = _k32
+        except Exception:
+            self._k32 = None
         u32.EnumWindows.argtypes = [self.WNDENUMPROC, wintypes.LPARAM]
         u32.EnumWindows.restype = wintypes.BOOL
         try:
@@ -223,6 +239,61 @@ class _Win32(object):
             h = _once()
         return h
 
+    def _top_viewports(self):
+        """ALL top-level windows titled VIEW_TITLE (ours + orphans)."""
+        found = []
+
+        @self.WNDENUMPROC
+        def _cb(hwnd, _lp):
+            if not self.u32.IsWindowVisible(hwnd):
+                return True
+            cls = self._ct.create_unicode_buffer(64)
+            self.u32.GetClassNameW(hwnd, cls, 64)
+            if (cls.value or "") != "Chrome_WidgetWin_1":
+                return True
+            buf = self._ct.create_unicode_buffer(256)
+            self.u32.GetWindowTextW(hwnd, buf, 256)
+            if VIEW_TITLE in (buf.value or ""):
+                found.append(hwnd)
+            return True
+
+        self.u32.EnumWindows(_cb, 0)
+        return found
+
+    def reap_stale_viewports(self, own_pid=None):
+        """Close orphaned top-level viewport windows (a browser crash makes
+        Chromium relaunch the --app window top-level; only OUR title is
+        matched, never the user's own browser windows). Returns count."""
+        WM_CLOSE = 0x0010
+        stale = [h for h in self._top_viewports()
+                 if own_pid is None or self.pid_of(h) != own_pid]
+        for h in stale:
+            try:
+                self.u32.PostMessageW(h, WM_CLOSE, 0, 0)
+            except Exception:
+                pass
+        end = time.time() + 2.0
+        while time.time() < end:
+            left = [h for h in self._top_viewports()
+                    if own_pid is None or self.pid_of(h) != own_pid]
+            if not left:
+                return len(stale)
+            time.sleep(0.25)
+        # Stragglers: terminate by PID (still only VIEW_TITLE windows).
+        if self._k32 is not None:
+            for h in self._top_viewports():
+                if own_pid is not None and self.pid_of(h) == own_pid:
+                    continue
+                try:
+                    ph = self._k32.OpenProcess(0x0001, False,
+                                               self.pid_of(h) or 0)
+                    if ph:
+                        self._k32.TerminateProcess(ph, 1)
+                        self._k32.CloseHandle(ph)
+                except Exception:
+                    pass
+        return len(stale)
+
     def client_origin(self, hwnd):
         pt = self._wt.POINT(0, 0)
         if not self.u32.ClientToScreen(hwnd, self._ct.byref(pt)):
@@ -275,7 +346,8 @@ class _Win32(object):
     _host_proc_ref = None
 
     def _ensure_host_class(self):
-        if self._host_proc_ref is not None:
+        if getattr(_Win32, "_host_atom", None):
+            self._host_proc_ref = _Win32._host_proc_ref
             return True
         WNDPROC = self._ct.WINFUNCTYPE(
             self._ct.c_long, self._wt.HWND, self._ct.c_uint,
@@ -325,7 +397,12 @@ class _Win32(object):
         wc.hInstance = self._ct.windll.kernel32.GetModuleHandleW(None)
         wc.lpszClassName = self._host_cls
         atom = u32.RegisterClassW(self._ct.byref(wc))
-        return bool(atom)
+        if not atom:
+            return False
+        _Win32._host_atom = atom
+        _Win32._host_proc_ref = _proc
+        self._host_proc_ref = _proc
+        return True
 
     def create_host(self, parent, x, y, w, h):
         if not self._ensure_host_class():
@@ -415,14 +492,20 @@ class EmbeddedViewport(object):
         self.parent = None
         self.profile = None
         self.browser = None
+        self.last_error = None  # short reason when start() returns None
         self._last = None
         self._edge_geo = None
         self._w32 = None
 
+    def _fail(self, why):
+        self.last_error = why
+        self.close()
+        return None
+
     def start(self, url, parent_title, w=800, h=536):
         exe, kind = find_browser()
         if not exe:
-            return None
+            return self._fail("no-browser")
         self.browser = exe
         try:
             self.profile = tempfile.mkdtemp(prefix="lempovp_")
@@ -431,6 +514,12 @@ class EmbeddedViewport(object):
         args = [exe, "--app=" + url, "--no-first-run",
                 "--no-default-browser-check", "--disable-sync",
                 "--disable-features=Translate,TranslateUI",
+                "--disable-crash-reporter", "--no-crash-upload",
+                "--disable-session-crashed-bubble",
+                # Private window: no history/cookies persisted and, most
+                # importantly, no session to restore after a GPU crash, so a
+                # dead browser can never come back as a detached top-level.
+                "--inprivate" if kind == "edge" else "--incognito",
                 "--window-size=%d,%d" % (int(w), int(h))]
         if self.profile:
             args.append("--user-data-dir=" + self.profile)
@@ -461,37 +550,38 @@ class EmbeddedViewport(object):
                     creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
             else:
                 if not os.environ.get("DISPLAY"):
-                    return None
+                    return self._fail("no-display")
                 self.proc = subprocess.Popen(
                     args, stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
         except Exception:
-            return None
+            return self._fail("launch-failed")
         if sys.platform == "win32":
             try:
                 self._w32 = _Win32()
             except Exception:
-                self.close()
-                return None
+                return self._fail("win32-init")
+            # Reap leftovers of a previous crash before grabbing a window,
+            # so find_app_window can never adopt another instance's orphan.
+            try:
+                self._w32.reap_stale_viewports()
+            except Exception:
+                pass
             child = self._w32.find_app_window(
                 timeout=15.0,
                 pid=self.proc.pid if self.proc is not None else None)
             if not child:
-                self.close()
-                return None
+                return self._fail("no-window")
             parent = self._w32.find_parent(parent_title, pid=os.getpid())
             if not parent:
-                self.close()
-                return None
+                return self._fail("no-parent")
             host = self._w32.create_host(parent, 0, 0, int(w), int(h))
             if not host:
-                self.close()
-                return None
+                return self._fail("no-host")
             try:
                 self._w32.embed_child(child, host)
             except Exception:
-                self.close()
-                return None
+                return self._fail("embed-failed")
             self.child = child
             self.host = host
             self.parent = parent

@@ -4061,7 +4061,8 @@ def _ensure_embed():
         emb = WV.EmbeddedViewport()
         mode = emb.start(url, _embed_parent_title())
         if not mode:
-            PS.debug_log("EMBED-NO-BROWSER", "no system browser found")
+            PS.debug_log("EMBED-NO-BROWSER",
+                         getattr(emb, "last_error", None) or "no browser")
             return False
         _EMBED = emb
         # existing 500ms last_effect.json sync feeds the page live
@@ -4078,8 +4079,9 @@ def _embed_tick():
     global _EMBED
     APP._embed_frames += 1
     if _EMBED is None:
+        _cool = getattr(APP, "_embed_cool_until", 0) or 0
         if (_embed_wanted() and APP._embed_frames > 10
-                and not _embed_modal_shown()):
+                and not _embed_modal_shown() and time.time() >= _cool):
             try:
                 _ensure_embed()
             except Exception:
@@ -4088,9 +4090,30 @@ def _embed_tick():
         return False
     try:
         if not _EMBED.alive():
-            PS.debug_log("EMBED-DIED", "browser gone; drawlist resumes")
+            _rc = None
+            try:
+                _rc = _EMBED.proc.poll() if _EMBED.proc is not None else None
+            except Exception:
+                pass
+            try:
+                _EMBED.close()  # kill lingerers, destroy host: no orphans
+            except Exception:
+                pass
             _EMBED = None
             APP._embed_on = False
+            # Retry (a GPU crash relaunches detached; a fresh private
+            # window re-embeds cleanly). Capped so a permanently broken
+            # browser can't spawn-loop: 3 tries, 5s apart, then drawlist.
+            APP._embed_retries = getattr(APP, "_embed_retries", 0) + 1
+            if APP._embed_retries > 3:
+                PS.debug_log("EMBED-GAVE-UP", "rc=%s" % (_rc,))
+                APP._embed_tried = True
+            else:
+                PS.debug_log("EMBED-DIED", "rc=%s retry=%d" % (
+                    _rc, APP._embed_retries))
+                APP._embed_tried = False
+                APP._embed_frames = 0
+                APP._embed_cool_until = time.time() + 5.0
             return False
         if _EMBED.mode != "child":
             APP._embed_on = False
