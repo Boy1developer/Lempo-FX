@@ -3278,7 +3278,7 @@ def build_topbar():
 
 
 def build_timeline():
-    with dpg.group(horizontal=True):
+    with dpg.group(horizontal=True, tag="timeline_bar"): 
         dpg.add_text("STATES", color=list(MUTED) + [255])
         dpg.add_group(tag="chip_group", horizontal=True)
         dpg.add_button(label="+", callback=lambda *a: add_state(), width=36)
@@ -4112,11 +4112,28 @@ def _embed_tick():
             return True
         APP._embed_badrect = False
         s = _EMBED._w32.dpi_scale(_EMBED.parent) if _EMBED._w32 else 1.0
+        hh = max(50.0, h * s)
+        # Clamp above the timeline/status bar: the browser must never
+        # cover STATES/chips/Fast-preview/status widgets sitting under
+        # vp_draw inside vp_child (tall windows grow the drawlist rect).
+        try:
+            _tmin = dpg.get_item_rect_min("timeline_bar")  # screen coords
+            _org = _EMBED._w32.client_origin(_EMBED.parent)
+            if _tmin is not None and _org is not None:
+                _tline_top = (_tmin[1] - _org[1]) * s
+                hh = max(50.0, min(hh, _tline_top - y * s))
+            if not getattr(APP, "_embed_clamp_logged", False):
+                APP._embed_clamp_logged = True
+                PS.debug_log("EMBED-CLAMP", "rect=%s tmin=%s org=%s hh=%s" % (
+                    r, _tmin, _org, round(hh, 1)))
+        except Exception as _e:
+            if not getattr(APP, "_embed_clamp_logged", False):
+                APP._embed_clamp_logged = True
+                PS.debug_log("EMBED-CLAMP-ERR", repr(_e)[:200])
         # Periodic force re-place self-heals any external drift
         # (window-manager moves, monitor/DPI hops) the cache would keep.
         force = (APP._embed_frames % 120 == 0)
-        if not _EMBED.place(x * s, y * s, max(50.0, w * s),
-                            max(50.0, h * s),
+        if not _EMBED.place(x * s, y * s, max(50.0, w * s), hh,
                             visible=not _embed_modal_shown(), force=force):
             PS.debug_log("EMBED-PLACE-FAIL", "%s" % (r,))
     except Exception as e:
