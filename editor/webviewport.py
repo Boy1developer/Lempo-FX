@@ -126,6 +126,10 @@ class _Win32(object):
         u32.GetWindowRect.argtypes = [wintypes.HWND,
                                       ctypes.POINTER(wintypes.RECT)]
         u32.GetWindowRect.restype = wintypes.BOOL
+        u32.GetWindowThreadProcessId.argtypes = [wintypes.HWND,
+                                                 ctypes.POINTER(
+                                                     wintypes.DWORD)]
+        u32.GetWindowThreadProcessId.restype = wintypes.DWORD
         u32.EnumWindows.argtypes = [self.WNDENUMPROC, wintypes.LPARAM]
         u32.EnumWindows.restype = wintypes.BOOL
         try:
@@ -151,10 +155,22 @@ class _Win32(object):
     SWP_NOSIZE = 0x0001
     HWND_TOP = 0
 
-    def find_parent(self, exact_title):
+    def pid_of(self, hwnd):
+        """Owning PID of a window (None on failure)."""
+        try:
+            pid = self._wt.DWORD(0)
+            self.u32.GetWindowThreadProcessId(hwnd, self._ct.byref(pid))
+            return int(pid.value) or None
+        except Exception:
+            return None
+
+    def find_parent(self, exact_title, pid=None):
+        # PID-scoped: with two editor instances open (same title), each
+        # instance must embed into its OWN window, never the other's.
         h = self.u32.FindWindowW(None, exact_title)
         if h and self.u32.IsWindow(h):
-            return h
+            if pid is None or self.pid_of(h) == pid:
+                return h
         # fallback: any top-level window whose title contains the editor tag
         found = []
 
@@ -165,14 +181,19 @@ class _Win32(object):
             buf = self._ct.create_unicode_buffer(256)
             self.u32.GetWindowTextW(hwnd, buf, 256)
             if PARENT_SUB in (buf.value or ""):
-                found.append(hwnd)
+                if pid is None or self.pid_of(hwnd) == pid:
+                    found.append(hwnd)
             return True
 
         self.u32.EnumWindows(_cb, 0)
         return found[0] if found else None
 
-    def find_app_window(self, timeout=12.0):
-        """Visible Chrome_WidgetWin_1 top-level titled VIEW_TITLE."""
+    def find_app_window(self, timeout=12.0, pid=None):
+        """Visible Chrome_WidgetWin_1 top-level titled VIEW_TITLE.
+
+        pid-scoped: with two editors open there are two such windows;
+        each instance must grab the one IT launched.
+        """
         end = time.time() + timeout
 
         def _once():
@@ -189,7 +210,8 @@ class _Win32(object):
                 buf = self._ct.create_unicode_buffer(256)
                 self.u32.GetWindowTextW(hwnd, buf, 256)
                 if VIEW_TITLE in (buf.value or ""):
-                    found.append(hwnd)
+                    if pid is None or self.pid_of(hwnd) == pid:
+                        found.append(hwnd)
                 return True
 
             self.u32.EnumWindows(_cb, 0)
@@ -451,11 +473,13 @@ class EmbeddedViewport(object):
             except Exception:
                 self.close()
                 return None
-            child = self._w32.find_app_window(timeout=15.0)
+            child = self._w32.find_app_window(
+                timeout=15.0,
+                pid=self.proc.pid if self.proc is not None else None)
             if not child:
                 self.close()
                 return None
-            parent = self._w32.find_parent(parent_title)
+            parent = self._w32.find_parent(parent_title, pid=os.getpid())
             if not parent:
                 self.close()
                 return None

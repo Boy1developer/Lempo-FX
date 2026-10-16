@@ -4100,9 +4100,25 @@ def _embed_tick():
             APP._embed_on = True
             return True
         x, y, w, h = r
+        # Guard: the drawlist is never at the client origin (sidebar +
+        # toolbar always take space). A near-zero rect means the layout
+        # chain misread - keep the last good placement instead of
+        # covering the sidebar (never place zeros over the settings).
+        if x < 20 or y < 20 or w < 100 or h < 100:
+            if not getattr(APP, "_embed_badrect", False):
+                APP._embed_badrect = True
+                PS.debug_log("EMBED-BADRECT", "skipped %s" % (r,))
+            APP._embed_on = True
+            return True
+        APP._embed_badrect = False
         s = _EMBED._w32.dpi_scale(_EMBED.parent) if _EMBED._w32 else 1.0
-        _EMBED.place(x * s, y * s, max(50.0, w * s), max(50.0, h * s),
-                     visible=not _embed_modal_shown())
+        # Periodic force re-place self-heals any external drift
+        # (window-manager moves, monitor/DPI hops) the cache would keep.
+        force = (APP._embed_frames % 120 == 0)
+        if not _EMBED.place(x * s, y * s, max(50.0, w * s),
+                            max(50.0, h * s),
+                            visible=not _embed_modal_shown(), force=force):
+            PS.debug_log("EMBED-PLACE-FAIL", "%s" % (r,))
     except Exception as e:
         PS.debug_log("EMBED-TRACK", repr(e)[:200])
     APP._embed_on = True
