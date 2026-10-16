@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lempo Viewport</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: #14161d; }
+  #wrap { position: fixed; inset: 0;
+    background: radial-gradient(120% 90% at 50% 30%, #1d2029 0%, #14161d 55%, #0e1016 100%); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Same element IDs as preview.html (main.js requires them), kept hidden. */
+  header, #stats, #hint, #fname, #file, #replay, #typeBadge, #err { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Lempo Particle Editor</div>
+  <div class="badge" id="typeBadge">2d</div>
+  <span id="fname">last_effect.json (live)</span>
+  <label for="file">Open JSON</label>
+  <input type="file" id="file" accept=".json,application/json">
+  <button id="replay">Replay burst</button>
+</header>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <canvas id="gl" style="display:none"></canvas>
+  <canvas id="px" style="display:none"></canvas>
+  <div id="stats">Particles: <b id="pCount">0</b><br>FPS: <b id="pFps">60</b></div>
+  <div id="hint"></div>
+  <div id="err"></div>
+</div>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "../node_modules/three/build/three.module.js",
+      "pixi.js": "../node_modules/pixi.js/dist/pixi.mjs"
+    }
+  }
+</script>
+<script id="boot-effect" type="application/json"></script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

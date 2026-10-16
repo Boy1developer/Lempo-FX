@@ -37,6 +37,11 @@ import particle_studio as PS
 import mesh_cache
 
 try:
+    import webviewport as WV
+except Exception:
+    WV = None
+
+try:
     import raster_view as RV
 except Exception:
     RV = None
@@ -591,6 +596,9 @@ class App:
         self._models_fp = None
         self._live_push_on = False
         self._last_push = 0.0
+        self._embed_tried = False
+        self._embed_on = False
+        self._embed_frames = 0
         self._status = "Ready"
         self._status_col = OK
         self._fps = 60
@@ -3926,6 +3934,40 @@ _preview_server = None
 _preview_port = 0
 
 
+def _build_live_page(tpl_name, out_name, eff):
+    """Bundle a preview template + live_bundle.js + boot effect JSON.
+
+    Starts the local preview server on first use. Returns the served URL.
+    Raises on template problems (the caller falls back to the plain page).
+    """
+    global _preview_server, _preview_port
+    base = PS.app_base_dir()
+    pv_dir = os.path.join(base, "preview")
+    if _preview_server is None:
+        handler = partial(PS._QuietHTTPHandler, directory=base)
+        srv = PS._PreviewHTTPServer(("127.0.0.1", 0), handler)
+        _preview_port = srv.server_address[1]
+        _preview_server = srv
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+    with open(os.path.join(pv_dir, tpl_name), encoding="utf-8") as f:
+        tpl = f.read()
+    with open(os.path.join(pv_dir, "live_bundle.js"), encoding="utf-8") as f:
+        bundle = f.read()
+    boot = json.dumps(eff, ensure_ascii=False).replace("</", "<\\/")
+    page = tpl.replace('<script type="module" src="./main.js"></script>',
+                       "<script type=\"module\">\n" + bundle +
+                       "\n</script>", 1)
+    page = page.replace('<script id="boot-effect" type="application/json">'
+                        "</script>",
+                        '<script id="boot-effect" type="application/json">'
+                        + boot + "</script>", 1)
+    if page == tpl or "__previewBooted" not in page:
+        raise ValueError("template markers missing")
+    with open(os.path.join(pv_dir, out_name), "w", encoding="utf-8") as f:
+        f.write(page)
+    return f"http://127.0.0.1:{_preview_port}/preview/{out_name}"
+
+
 @_safe_action
 def open_fast_preview():
     global _preview_server, _preview_port
@@ -3943,38 +3985,21 @@ def open_fast_preview():
     except OSError as e:
         show_msg("Error", f"Cannot write preview file:\n{e}")
         return
-    if _preview_server is None:
-        handler = partial(PS._QuietHTTPHandler, directory=base)
-        try:
-            srv = PS._PreviewHTTPServer(("127.0.0.1", 0), handler)
-        except OSError as e:
-            show_msg("Error", f"Cannot start preview server: {e}")
-            return
-        _preview_port = srv.server_address[1]
-        _preview_server = srv
-        threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{_preview_port}/preview/preview.html"
     try:
-        with open(os.path.join(pv_dir, "preview.html"), encoding="utf-8") as f:
-            tpl = f.read()
-        with open(os.path.join(pv_dir, "live_bundle.js"), encoding="utf-8") as f:
-            bundle = f.read()
-        boot = json.dumps(eff, ensure_ascii=False).replace("</", "<\\/")
-        page = tpl.replace('<script type="module" src="./main.js"></script>',
-                           "<script type=\"module\">\n" + bundle +
-                           "\n</script>", 1)
-        page = page.replace('<script id="boot-effect" type="application/json">'
-                            "</script>",
-                            '<script id="boot-effect" type="application/json">'
-                            + boot + "</script>", 1)
-        if page == tpl or "__previewBooted" not in page:
-            raise ValueError("template markers missing")
-        with open(os.path.join(pv_dir, "live_effect.html"), "w",
-                  encoding="utf-8") as f:
-            f.write(page)
-        url = f"http://127.0.0.1:{_preview_port}/preview/live_effect.html"
+        url = _build_live_page("preview.html", "live_effect.html", eff)
     except Exception:
-        pass
+        if _preview_server is None:
+            try:
+                handler = partial(PS._QuietHTTPHandler, directory=base)
+                srv = PS._PreviewHTTPServer(("127.0.0.1", 0), handler)
+                _preview_port = srv.server_address[1]
+                _preview_server = srv
+                threading.Thread(target=srv.serve_forever,
+                                 daemon=True).start()
+            except OSError as e:
+                show_msg("Error", f"Cannot start preview server: {e}")
+                return
     try:
         import urllib.request as _url
         opener = _url.build_opener(_url.ProxyHandler({}))
@@ -3986,6 +4011,102 @@ def open_fast_preview():
         return
     APP._live_push_on = True
     webbrowser.open(url)
+
+
+# ================= embedded viewport (three.js / pixi.js in-place) ===
+_EMBED = None  # webviewport.EmbeddedViewport while the browser is hosted
+
+
+def _embed_parent_title():
+    return f"Lempo Particle Editor v{APP_VERSION} [{BUILD_ID}]"
+
+
+def _embed_wanted():
+    if WV is None or APP._embed_tried:
+        return False
+    if os.environ.get("LEMPO_NO_EMBED"):
+        return False
+    if "--smoke" in sys.argv:
+        return False
+    return True
+
+
+def _embed_modal_shown():
+    try:
+        for tag in ("chooser_win", "msg_win"):
+            if dpg.does_item_exist(tag) and dpg.is_item_shown(tag):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _ensure_embed():
+    """Lazy start once layout exists. Returns True while embedded."""
+    global _EMBED
+    APP._embed_tried = True
+    if WV is None:
+        return False
+    try:
+        eff = gather()
+        with open(os.path.join(PS.app_base_dir(), "preview",
+                               "last_effect.json"), "w",
+                  encoding="utf-8") as f:
+            json.dump(eff, f, ensure_ascii=False)
+        url = _build_live_page("viewport.html", "viewport_live.html", eff)
+    except Exception as e:
+        PS.debug_log("EMBED-PAGE", repr(e)[:200])
+        return False
+    try:
+        emb = WV.EmbeddedViewport()
+        mode = emb.start(url, _embed_parent_title())
+        if not mode:
+            PS.debug_log("EMBED-NO-BROWSER", "no system browser found")
+            return False
+        _EMBED = emb
+        # existing 500ms last_effect.json sync feeds the page live
+        APP._live_push_on = True
+        PS.debug_log("EMBED-ON", mode)
+        return True
+    except Exception as e:
+        PS.debug_log("EMBED-START", repr(e)[:300])
+        return False
+
+
+def _embed_tick():
+    """Per-frame host tracking. True = embedded child covers vp_draw."""
+    global _EMBED
+    APP._embed_frames += 1
+    if _EMBED is None:
+        if (_embed_wanted() and APP._embed_frames > 10
+                and not _embed_modal_shown()):
+            try:
+                _ensure_embed()
+            except Exception:
+                APP._embed_tried = True
+        APP._embed_on = False
+        return False
+    try:
+        if not _EMBED.alive():
+            PS.debug_log("EMBED-DIED", "browser gone; drawlist resumes")
+            _EMBED = None
+            APP._embed_on = False
+            return False
+        if _EMBED.mode != "child":
+            APP._embed_on = False
+            return False  # companion window: drawlist stays visible
+        r = WV.drawlist_rect("vp_draw")
+        if r is None:
+            APP._embed_on = True
+            return True
+        x, y, w, h = r
+        s = _EMBED._w32.dpi_scale(_EMBED.parent) if _EMBED._w32 else 1.0
+        _EMBED.place(x * s, y * s, max(50.0, w * s), max(50.0, h * s),
+                     visible=not _embed_modal_shown())
+    except Exception as e:
+        PS.debug_log("EMBED-TRACK", repr(e)[:200])
+    APP._embed_on = True
+    return True
 
 
 # ================= mouse + frame loop =================
@@ -4631,6 +4752,10 @@ def frame():
             except Exception:
                 pass
         auto = os.environ.get("LEMPO_AUTO")
+        try:
+            APP._embed_on = bool(_embed_tick())
+        except Exception:
+            APP._embed_on = False
         if auto in MODE_BY_ID and dpg.is_item_shown("chooser_win"):
             choose(auto)
     except Exception:
@@ -4685,6 +4810,11 @@ def main():
         if smoke and n >= smoke:
             print(f"SMOKE-OK frames={n} parts={APP._n_show} fps={APP._fps}")
             break
+    try:
+        if _EMBED is not None:
+            _EMBED.close()
+    except Exception:
+        pass
     dpg.destroy_context()
 
 

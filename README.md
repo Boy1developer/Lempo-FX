@@ -110,6 +110,7 @@ Both parts share a single source of truth for particle behavior, shapes, and the
 - **Adaptive viewport** — crisp vector drawlist for small particle counts; above ~900 particles the particle layer renders offscreen and uploads as a texture while guides/gizmo stay vector.
 
 ### 🔍 Previews
+- **Embedded viewport (three.js / pixi.js, no button needed)** — the main viewport hosts the real preview engines in-place: Three.js for 3D modes, PixiJS for 2D, with orbit/zoom inside the page and the same 500 ms live-sync. No separate browser window to open. Windows: the system Edge/Chrome window is embedded directly over the draw area (chromeless via a clip container). Linux: a companion app window opens automatically. Set `LEMPO_NO_EMBED=1` to keep the classic vector viewport.
 - **In-editor GPU preview** — a minimal offscreen OpenGL 3.3 renderer built on raw `ctypes` (no PyOpenGL or numpy needed).
 - **Browser fast preview** — a self-contained `live_effect.html` (≈1.1 MB, zero network fetches) rendering the same effect live in Three.js (3D) / PixiJS (2D), with 500 ms live-sync. Trail mode renders ribbons in the preview too and hides the particle dots, exactly like the editor viewport.
 - **In-game trails (extension v0.2.0)** — exported trail effects render as ribbons inside GDevelop as well (2D quad strips, 3D billboard strips, pooled and blend-aware), with `hideParticle` honored. No new objects: the existing emitters grow trail support, and trail-less effects render bit-identical to before.

@@ -33,3 +33,6 @@ incoming-2d/
 
 # Compiled runtime output (rebuilt via tsc, see lempo-runtime/README.md)
 lempo-runtime/dist/
+
+preview/viewport_live.html
+
