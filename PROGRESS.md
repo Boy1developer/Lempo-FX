@@ -245,3 +245,6 @@ Rebuild after 2D zoom fix: REBUILD_OK 26.4 MB smoke True.
 
 - Embedded viewport covering the timeline/status bar (2026-10-16, main): follow-up to the sidebar-overlap fix - with tall windows the browser stretched over STATES/chips/Fast-preview/status widgets. Measured live: vp_draw rect (344,82,920,641) ends at client y=723 while the timeline group starts at y=655 (68px overlap - the drawlist outgrows its slot). Fix: timeline group tagged 	imeline_bar in build_timeline(); _embed_tick clamps host height to timeline_top-client_y every frame (logged once as EMBED-CLAMP; verified 641->573). Normal windows unaffected (clamp equals drawlist height when no overlap). Smoke 120 green. Rebuild REBUILD_OK 27.4MB smoke True.
 
+
+- Rebuild on the current state (2026-10-16, main): user request (Arabic) - full rebuild via tools/rebuild_app.py on a clean tree (no code changes since 37e4328). REBUILD_OK 27.4 MB smoke True (boot alive after 9s), shortcut refreshed with Lempo icon.
+
