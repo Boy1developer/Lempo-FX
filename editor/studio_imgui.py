@@ -3182,6 +3182,7 @@ def build_sidebar():
             dpg.add_text("Texture", color=list(MUTED) + [255])
             dpg.add_input_text(tag="em_tex", default_value="", width=-1,
                                callback=cb_em_text(("material", "texture")))
+            dpg.add_button(label="Pick", callback=pick_material_texture, width=40)
         with dpg.group(horizontal=True):
             dpg.add_text("Flipbook", color=list(MUTED) + [255])
             dpg.add_checkbox(tag="em_fb_on", callback=cb_em_bool(("material", "flipbook", "enabled")))
@@ -3791,6 +3792,19 @@ def save_chosen(sender=None, app_data=None, *r):
                          "resource into ParticleJSON.")
     except Exception as e:
         show_msg("Error", str(e))
+
+
+@_safe_action
+def pick_material_texture():
+    path, err = _native_pick("image")
+    if err:
+        show_msg("Error", err)
+        return
+    if not path:
+        return
+    em_set(("material", "texture"), path)
+    _set("em_tex", path)
+    APP.mark_dirty()
 
 
 @_safe_action
