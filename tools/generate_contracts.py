@@ -216,6 +216,15 @@ def schema_file(c):
                             "flickerHz": {"type": "number"},
                         },
                     },
+                    "material": {
+                        "type": "object",
+                        "properties": {
+                            "texture": {"type": "string"},
+                            "flipbook": {"type": "object"},
+                            "uvScroll": {"type": "object"},
+                            "softParticles": {"type": "object"},
+                        },
+                    },
                     "fields": {
                         "type": "object",
                         "properties": {

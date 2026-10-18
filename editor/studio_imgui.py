@@ -2398,6 +2398,20 @@ def sync_emitter_form(self):
     _set("em_seed", int(e.get("seed", 0) or 0))
     _sync_fields_form(e.get("fields"))
     sync_trails_form()
+    _m = e.get("material") or {}
+    _fb = _m.get("flipbook") or {}
+    _uv = _m.get("uvScroll") or {}
+    _sp = _m.get("softParticles") or {}
+    _set("em_tex", str(_m.get("texture", "") or ""))
+    _set("em_fb_on", bool(_fb.get("enabled", False)))
+    _set("em_fb_cols", int(_fb.get("columns", 1) or 1))
+    _set("em_fb_rows", int(_fb.get("rows", 1) or 1))
+    _set("em_fb_frames", int(_fb.get("frames", 1) or 1))
+    _set("em_fb_fps", float(_fb.get("fps", 10.0) or 10.0))
+    _set("em_uv_u", float(_uv.get("speedU", 0.0) or 0.0))
+    _set("em_uv_v", float(_uv.get("speedV", 0.0) or 0.0))
+    _set("em_soft_on", bool(_sp.get("enabled", False)))
+    _set("em_soft_amt", float(_sp.get("softness", 1.0) or 1.0))
     _set("em_gx", float(g.get("x", 0)))
     _set("em_gy", float(g.get("y", 0)))
     _set("em_gz", float(g.get("z", 0)))
@@ -3163,6 +3177,30 @@ def build_sidebar():
             dpg.add_text("Show cone", color=list(MUTED) + [255])
             dpg.add_checkbox(tag="em_showcone", default_value=True,
                              callback=cb_em_bool(("propagationCone", "showCone")))
+        sec("Material (texture / flipbook / UV / soft)")
+        with dpg.group(horizontal=True):
+            dpg.add_text("Texture", color=list(MUTED) + [255])
+            dpg.add_input_text(tag="em_tex", default_value="", width=-1,
+                               callback=cb_em_text(("material", "texture")))
+        with dpg.group(horizontal=True):
+            dpg.add_text("Flipbook", color=list(MUTED) + [255])
+            dpg.add_checkbox(tag="em_fb_on", callback=cb_em_bool(("material", "flipbook", "enabled")))
+        num_row("FB cols", "em_fb_cols", 4, cb_em_int(("material", "flipbook", "columns")))
+        num_row("FB rows", "em_fb_rows", 4, cb_em_int(("material", "flipbook", "rows")))
+        num_row("FB frames", "em_fb_frames", 16, cb_em_int(("material", "flipbook", "frames")))
+        num_row("FB fps", "em_fb_fps", 12.0, cb_em_float(("material", "flipbook", "fps")))
+        with dpg.group(horizontal=True):
+            dpg.add_text("UV scroll U", color=list(MUTED) + [255])
+            dpg.add_input_float(tag="em_uv_u", default_value=0.0, width=-1,
+                                callback=cb_em_float(("material", "uvScroll", "speedU")))
+        with dpg.group(horizontal=True):
+            dpg.add_text("UV scroll V", color=list(MUTED) + [255])
+            dpg.add_input_float(tag="em_uv_v", default_value=0.0, width=-1,
+                                callback=cb_em_float(("material", "uvScroll", "speedV")))
+        with dpg.group(horizontal=True):
+            dpg.add_text("Soft particles", color=list(MUTED) + [255])
+            dpg.add_checkbox(tag="em_soft_on", callback=cb_em_bool(("material", "softParticles", "enabled")))
+        num_row("Softness", "em_soft_amt", 1.0, cb_em_float(("material", "softParticles", "softness")))
         sec("States")
         with dpg.group(horizontal=True):
             dpg.add_text("Preview", color=list(MUTED) + [255])

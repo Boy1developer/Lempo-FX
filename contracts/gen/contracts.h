@@ -2,7 +2,7 @@
 #pragma once
 
 // Export format version (must match effect JSON "version").
-constexpr const char* LEMPO_EXPORT_VERSION = "1.1";
+constexpr const char* LEMPO_EXPORT_VERSION = "1.2";
 
 // Particle record layout: 22 fields (see RECORD_FIELDS).
 constexpr int LEMPO_RECORD_FIELD_COUNT = 22;

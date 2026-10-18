@@ -10,7 +10,7 @@
  * boundary, zero `any` leaking into engine code.
  */
 
-export const LEMPO_EFFECT_VERSION = "1.1" as const;
+export const LEMPO_EFFECT_VERSION = "1.2" as const;
 
 export const SHAPE_ORDER = [
   "circle",

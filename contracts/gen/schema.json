@@ -11,7 +11,7 @@
   "properties": {
     "version": {
       "enum": [
-        "1.1"
+        "1.2"
       ]
     },
     "type": {
@@ -285,6 +285,23 @@
             },
             "flickerHz": {
               "type": "number"
+            }
+          }
+        },
+        "material": {
+          "type": "object",
+          "properties": {
+            "texture": {
+              "type": "string"
+            },
+            "flipbook": {
+              "type": "object"
+            },
+            "uvScroll": {
+              "type": "object"
+            },
+            "softParticles": {
+              "type": "object"
             }
           }
         },

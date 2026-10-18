@@ -866,6 +866,29 @@ def field_accel(x, y, z, age, f, ex, ey, ez, flat):
     return ax, ay, az
 
 
+def default_material():
+    """Default material/texture settings (flipbook + UV scroll + soft particles).
+
+    All features default to OFF so v1.0/v1.1 files render bit-identical.
+    """
+    return {
+        "texture": "",
+        "flipbook": {
+            "enabled": False, "columns": 1, "rows": 1, "frames": 1,
+            "startFrame": 0, "fps": 10.0, "mode": "overLifetime",
+            "blend": False, "randomStart": False, "loop": True,
+            "pingPong": False,
+        },
+        "uvScroll": {
+            "enabled": False, "speedU": 0.0, "speedV": 0.0,
+            "tile": False, "randomOffset": False, "overLifetime": False,
+        },
+        "softParticles": {
+            "enabled": False, "softness": 1.0, "intensity": 1.0,
+        },
+    }
+
+
 def default_emitter(ptype="2d"):
     if ptype == "3d":
         return {
@@ -884,6 +907,7 @@ def default_emitter(ptype="2d"):
             "seed": 0,
             "fields": default_fields(),
             "trails": default_trails(),
+            "material": default_material(),
         }
     return {
         "flow": 40, "flowMode": "rate", "flowInterval": 1,
@@ -899,6 +923,7 @@ def default_emitter(ptype="2d"):
         "seed": 0,
         "fields": default_fields(),
         "trails": default_trails(),
+        "material": default_material(),
     }
 
 
@@ -1053,9 +1078,9 @@ def migrate_effect(data):
     if v is None:
         eff["version"] = VERSION
         warns.append(f"version missing -> assumed '{VERSION}'")
-    elif str(v) == "1.0" and str(VERSION) != "1.0":
+    elif str(v) in ("1.0", "1.1") and str(VERSION) != str(v):
         eff["version"] = VERSION
-        warns.append(f"version '1.0' -> '{VERSION}' (new optional keys defaulted)")
+        warns.append(f"version '{v}' -> '{VERSION}' (new optional keys defaulted)")
     elif str(v) != str(VERSION):
         raise ValueError(f"unsupported effect version {v!r} (need '{VERSION}')")
     if eff.get("type") not in ("2d", "3d"):
@@ -1076,6 +1101,17 @@ def migrate_effect(data):
         for _k, _v in _dt.items():
             if em["trails"].get(_k) is None:
                 em["trails"][_k] = _v
+    if not isinstance(em.get("material"), dict):
+        em["material"] = default_material()
+    else:
+        _dm = default_material()
+        for _k, _v in _dm.items():
+            if em["material"].get(_k) is None:
+                em["material"][_k] = _v
+            elif isinstance(_v, dict) and isinstance(em["material"].get(_k), dict):
+                for _kk, _vv in _v.items():
+                    if em["material"][_k].get(_kk) is None:
+                        em["material"][_k][_kk] = _vv
     states = eff.get("states")
     if isinstance(states, list):
         for i, s in enumerate(states):
