@@ -54,6 +54,11 @@ function applyEffect(eff: unknown): void {
     const tag: string = String(t ?? "?") + (engine.is3D ? " • three.js" : " • pixi.js");
     (document.getElementById("typeBadge") as HTMLElement).textContent = tag;
     loaded = true; showErr("");
+    // Preload custom-shape image textures so the Pixi renderer can show them.
+    if (pixi && pixi.ready) {
+      const refs: string[] = (engine as any).customImageRefs?.() ?? [];
+      if (refs.length) pixi.preloadCustomRefs(refs).catch(() => { /* non-fatal */ });
+    }
   } catch (e) { showErr("Invalid effect JSON: " + errMsg(e)); }
 }
 

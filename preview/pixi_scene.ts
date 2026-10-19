@@ -93,6 +93,7 @@ export class PixiScene {
   private grid!: PIXI.Graphics;
   private pool: PIXI.Sprite[] = [];
   private tex: Record<string, PIXI.Texture> = {};
+  private customTex: Map<string, PIXI.Texture> = new Map();
   private prevN = 0;
   private lastW = 0;
   private lastH = 0;
@@ -130,6 +131,24 @@ export class PixiScene {
   private normShape(shape: string): string {
     const s: string = String(shape ?? "circle").toLowerCase();
     return Object.prototype.hasOwnProperty.call(this.tex, s) ? s : "circle";
+  }
+
+  /** Preload custom-shape image textures from refs (relative URLs served by the preview server). */
+  async preloadCustomRefs(refs: string[]): Promise<void> {
+    for (const ref of refs) {
+      if (this.customTex.has(ref)) continue;
+      try {
+        const t = await PIXI.Texture.fromURL(ref);
+        this.customTex.set(ref, t);
+      } catch (e) {
+        console.warn("[PixiScene] Failed to load custom texture:", ref, e);
+      }
+    }
+  }
+
+  /** Lookup a preloaded custom texture by ref; null when not loaded / missing. */
+  customTextureFor(ref: string): PIXI.Texture | null {
+    return this.customTex.get(ref) ?? null;
   }
 
   /** Pixi blend string for an effect mode (same fallbacks as the extension). */
@@ -265,7 +284,16 @@ export class PixiScene {
         continue;
       }
       const sm = this.engine.sampleAt(st.age, i);
-      sp.texture = this.tex[this.normShape(sm.shape)];
+      // Custom-shape particles use the imported image texture; fallback to baked shape.
+      let tex: PIXI.Texture = this.tex[this.normShape(sm.shape)];
+      if (sm.shape === "custom") {
+        const ref = this.engine.customRefAt(st.age);
+        if (ref) {
+          const ct = this.customTextureFor(ref);
+          if (ct) tex = ct;
+        }
+      }
+      sp.texture = tex;
       sp.position.set(st.x, st.y);
       const s: number = Math.max(0.5, sm.size / TEX_R);
       sp.scale.set(s);

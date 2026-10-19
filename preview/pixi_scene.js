@@ -103,6 +103,7 @@ export class PixiScene {
         this.app = new PIXI.Application();
         this.pool = [];
         this.tex = {};
+        this.customTex = new Map();
         this.prevN = 0;
         this.lastW = 0;
         this.lastH = 0;
@@ -137,6 +138,24 @@ export class PixiScene {
     normShape(shape) {
         const s = String(shape ?? "circle").toLowerCase();
         return Object.prototype.hasOwnProperty.call(this.tex, s) ? s : "circle";
+    }
+    /** Preload custom-shape image textures from refs (relative URLs served by the preview server). */
+    async preloadCustomRefs(refs) {
+        for (const ref of refs) {
+            if (this.customTex.has(ref))
+                continue;
+            try {
+                const t = await PIXI.Texture.fromURL(ref);
+                this.customTex.set(ref, t);
+            }
+            catch (e) {
+                console.warn("[PixiScene] Failed to load custom texture:", ref, e);
+            }
+        }
+    }
+    /** Lookup a preloaded custom texture by ref; null when not loaded / missing. */
+    customTextureFor(ref) {
+        return this.customTex.get(ref) ?? null;
     }
     /** Pixi blend string for an effect mode (same fallbacks as the extension). */
     pixiBlend(mode) {
@@ -278,7 +297,17 @@ export class PixiScene {
                 continue;
             }
             const sm = this.engine.sampleAt(st.age, i);
-            sp.texture = this.tex[this.normShape(sm.shape)];
+            // Custom-shape particles use the imported image texture; fallback to baked shape.
+            let tex = this.tex[this.normShape(sm.shape)];
+            if (sm.shape === "custom") {
+                const ref = this.engine.customRefAt(st.age);
+                if (ref) {
+                    const ct = this.customTextureFor(ref);
+                    if (ct)
+                        tex = ct;
+                }
+            }
+            sp.texture = tex;
             sp.position.set(st.x, st.y);
             const s = Math.max(0.5, sm.size / TEX_R);
             sp.scale.set(s);

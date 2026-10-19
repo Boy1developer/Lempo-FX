@@ -38,6 +38,7 @@ interface Keyframe {
   size: number; sizeMax: number; color: RGB; opacity: number;
   minSpd: number; maxSpd: number; easing: string;
   modelRef: string;
+  customShapeRefs: string[];
 }
 
 const MAX_POOL = 4000;
@@ -252,6 +253,7 @@ export class ParticleEngine {
         maxSpd: Number(mv.maxSpeed ?? mv.minSpeed ?? 0),
         easing: String(s.easing ?? "linear"),
         modelRef: String((s.modelRefs as unknown[] | undefined)?.[0] ?? ""),
+        customShapeRefs: Array.isArray(s.customShapeRefs) ? s.customShapeRefs.slice() : [],
       };
     });
     // Embedded GLB/GLTF blobs for custom-model states. Replace (never merge
@@ -551,6 +553,26 @@ export class ParticleEngine {
   customRefs(): string[] {
     const out: string[] = [];
     for (const k of this.kf) if (k.modelRef && out.indexOf(k.modelRef) < 0) out.push(k.modelRef);
+    return out;
+  }
+
+  /** Custom-shape image ref (filename / URL) active at a given age. */
+  customRefAt(age: number): string {
+    if (!this.kf.length) return "";
+    const [k, , raw] = this.locate(age);
+    const a: Keyframe = this.kf[k], b: Keyframe = this.kf[Math.min(k + 1, this.kf.length - 1)];
+    const refs = raw >= 0.5 ? (b.customShapeRefs || []) : (a.customShapeRefs || []);
+    return refs.length ? String(refs[0]) : "";
+  }
+
+  /** Distinct non-empty custom-shape image refs across keyframes (for preload). */
+  customImageRefs(): string[] {
+    const out: string[] = []; const seen = new Set<string>();
+    for (const k of this.kf) {
+      for (const ref of (k.customShapeRefs || [])) {
+        if (ref && !seen.has(ref)) { seen.add(ref); out.push(ref); }
+      }
+    }
     return out;
   }
 

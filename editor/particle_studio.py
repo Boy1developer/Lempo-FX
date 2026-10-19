@@ -3562,6 +3562,36 @@ class StudioApp(tk.Tk):
     _preview_server = None
     _preview_port = 0
 
+    def _stage_custom_images(self, eff: dict, pv_dir: str) -> dict:
+        """Copy custom-shape PNG files referenced by states into preview/assets/
+        and rewrite customShapeRefs to relative URLs (assets/<file>) so the
+        browser preview server can serve them."""
+        import shutil
+        assets_dir = os.path.join(pv_dir, "assets")
+        os.makedirs(assets_dir, exist_ok=True)
+        for st in eff.get("states", []) or []:
+            refs = st.get("customShapeRefs")
+            if not refs:
+                continue
+            new_refs = []
+            for ref in refs:
+                if not ref:
+                    new_refs.append(ref); continue
+                # If it's an existing local file, stage it under preview/assets/
+                if os.path.isfile(str(ref)):
+                    src = str(ref)
+                    dst = os.path.join(assets_dir, os.path.basename(src))
+                    try:
+                        if os.path.abspath(src) != os.path.abspath(dst):
+                            shutil.copy2(src, dst)
+                    except OSError:
+                        pass
+                    new_refs.append("assets/" + os.path.basename(src))
+                else:
+                    new_refs.append(ref)
+            st["customShapeRefs"] = new_refs
+        return eff
+
     def open_fast_preview(self):
         """Export current effect to preview/last_effect.json and open the
         TypeScript 60FPS preview in the browser (live-sync every 500ms)."""
@@ -3573,6 +3603,7 @@ class StudioApp(tk.Tk):
             eff["modelsData"] = blobs
         base = app_base_dir()
         pv_dir = os.path.join(base, "preview")
+        eff = self._stage_custom_images(eff, pv_dir)
         try:
             os.makedirs(pv_dir, exist_ok=True)
             with open(os.path.join(pv_dir, "last_effect.json"), "w", encoding="utf-8") as f:
@@ -3636,6 +3667,8 @@ class StudioApp(tk.Tk):
                 if getattr(self, "_models_fp", None) != fp:
                     self._models_fp = fp
                     eff["modelsData"] = model_blobs_for_states(self.states)
+                eff = self._stage_custom_images(eff,
+                    os.path.join(app_base_dir(), "preview"))
                 with open(os.path.join(app_base_dir(), "preview", "last_effect.json"),
                           "w", encoding="utf-8") as f:
                     json.dump(eff, f, ensure_ascii=False)

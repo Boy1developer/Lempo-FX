@@ -50,6 +50,12 @@ function applyEffect(eff) {
         document.getElementById("typeBadge").textContent = tag;
         loaded = true;
         showErr("");
+        // Preload custom-shape image textures so the Pixi renderer can show them.
+        if (pixi && pixi.ready) {
+            const refs = engine.customImageRefs ? engine.customImageRefs() : [];
+            if (refs.length)
+                pixi.preloadCustomRefs(refs).catch(() => { /* non-fatal */ });
+        }
     }
     catch (e) {
         showErr("Invalid effect JSON: " + errMsg(e));
