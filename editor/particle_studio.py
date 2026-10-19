@@ -3565,10 +3565,22 @@ class StudioApp(tk.Tk):
     def _stage_custom_images(self, eff: dict, pv_dir: str) -> dict:
         """Copy custom-shape PNG files referenced by states into preview/assets/
         and rewrite customShapeRefs to relative URLs (assets/<file>) so the
-        browser preview server can serve them."""
+        browser preview server can serve them.
+
+        Ref may be an absolute path (E:/.../file.png), a path relative to the
+        effect file / CWD, or a bare basename. We search likely locations so
+        bare basenames still resolve."""
         import shutil
         assets_dir = os.path.join(pv_dir, "assets")
         os.makedirs(assets_dir, exist_ok=True)
+        # Candidate root dirs where a bare basename might live.
+        cand_roots = [os.getcwd(), os.path.dirname(os.path.abspath(__file__)),
+                      os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"),
+                      os.path.join(app_base_dir(), "assets")]
+        seen_roots = []
+        for r in cand_roots:
+            if r and os.path.isdir(r) and r not in seen_roots:
+                seen_roots.append(r)
         for st in eff.get("states", []) or []:
             refs = st.get("customShapeRefs")
             if not refs:
@@ -3577,9 +3589,16 @@ class StudioApp(tk.Tk):
             for ref in refs:
                 if not ref:
                     new_refs.append(ref); continue
-                # If it's an existing local file, stage it under preview/assets/
+                src = None
                 if os.path.isfile(str(ref)):
                     src = str(ref)
+                else:
+                    base_name = os.path.basename(str(ref))
+                    for root in seen_roots:
+                        trial = os.path.join(root, base_name)
+                        if os.path.isfile(trial):
+                            src = trial; break
+                if src:
                     dst = os.path.join(assets_dir, os.path.basename(src))
                     try:
                         if os.path.abspath(src) != os.path.abspath(dst):
