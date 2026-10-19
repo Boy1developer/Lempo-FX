@@ -3183,9 +3183,9 @@ def build_sidebar():
         sec("Material (texture / flipbook / UV / soft)")
         with dpg.group(horizontal=True):
             dpg.add_text("Texture", color=list(MUTED) + [255])
+            dpg.add_button(label="Import", callback=pick_material_texture, width=60)
             dpg.add_input_text(tag="em_tex", default_value="", width=-1,
                                callback=cb_em_text(("material", "texture")))
-            dpg.add_button(label="Import", callback=pick_material_texture, width=60)
         with dpg.group(horizontal=True):
             dpg.add_text("Flipbook", color=list(MUTED) + [255])
             dpg.add_checkbox(tag="em_fb_on", callback=cb_em_bool(("material", "flipbook", "enabled")))
