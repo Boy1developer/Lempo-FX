@@ -3571,12 +3571,25 @@ class StudioApp(tk.Tk):
         effect file / CWD, or a bare basename. We search likely locations so
         bare basenames still resolve."""
         import shutil
+        import string
+        import ctypes
         assets_dir = os.path.join(pv_dir, "assets")
         os.makedirs(assets_dir, exist_ok=True)
-        # Candidate root dirs where a bare basename might live.
-        cand_roots = [os.getcwd(), os.path.dirname(os.path.abspath(__file__)),
+        # Candidate root dirs where a bare basename might live, including
+        # drive roots so files like E:/Copilot_....png are found.
+        cand_roots = [os.getcwd(),
+                      os.path.dirname(os.path.abspath(__file__)),
                       os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"),
-                      os.path.join(app_base_dir(), "assets")]
+                      os.path.join(app_base_dir(), "assets"),
+                      os.path.expanduser("~")]
+        try:
+            # Windows logical drives (A:..Z:)
+            drives = ctypes.windll.kernel32.GetLogicalDrives()
+            for letter in string.ascii_uppercase:
+                if drives & (1 << (ord(letter) - ord("A"))):
+                    cand_roots.append(letter + ":/")
+        except Exception:
+            pass
         seen_roots = []
         for r in cand_roots:
             if r and os.path.isdir(r) and r not in seen_roots:
@@ -3588,6 +3601,9 @@ class StudioApp(tk.Tk):
             new_refs = []
             for ref in refs:
                 if not ref:
+                    new_refs.append(ref); continue
+                # Already staged / relative assets URL -> keep as-is.
+                if str(ref).startswith("assets/"):
                     new_refs.append(ref); continue
                 src = None
                 if os.path.isfile(str(ref)):
@@ -3654,13 +3670,14 @@ class StudioApp(tk.Tk):
             page = page.replace('<script id="boot-effect" type="application/json"></script>',
                                 '<script id="boot-effect" type="application/json">'
                                 + boot + "</script>", 1)
-            if page == tpl or "live_bundle" in page or "__previewBooted" not in page:
+            if page == tpl or "__previewBooted" not in page:
                 raise ValueError("template markers missing")
             with open(os.path.join(pv_dir, "live_effect.html"), "w", encoding="utf-8") as f:
                 f.write(page)
             url = f"http://127.0.0.1:{StudioApp._preview_port}/preview/live_effect.html"
-        except Exception:
-            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"تعذر إنشاء صفحة المعاينة الذاتية:\n{e}")
+            return
         # self-check: prove WE serve before opening the browser, otherwise the
         # user gets a dead tab (proxy/firewall/CWD issues stay visible here)
         try:
