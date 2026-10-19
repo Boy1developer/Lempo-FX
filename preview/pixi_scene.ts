@@ -259,6 +259,12 @@ export class PixiScene {
    *  shared rAF loop in preview.html; Pixi auto-renders on its own ticker. */
   sync(ex: number, ey: number): void {
     if (!this.ready) return;
+    // Lazily preload any custom-shape image textures not yet loaded (covers
+    // the boot race where pixi.init() finishes after the first applyEffect).
+    const pending = this.engine.customImageRefs?.().filter(
+      (r: string) => !this.customTex.has(r)
+    );
+    if (pending.length) this.preloadCustomRefs(pending);
     const W: number = Math.max(1, Math.round(this.canvas.clientWidth || 1));
     const H: number = Math.max(1, Math.round(this.canvas.clientHeight || 1));
     if (W !== this.lastW || H !== this.lastH) {

@@ -55,7 +55,9 @@ function applyEffect(eff: unknown): void {
     (document.getElementById("typeBadge") as HTMLElement).textContent = tag;
     loaded = true; showErr("");
     // Preload custom-shape image textures so the Pixi renderer can show them.
-    if (pixi && pixi.ready) {
+    // (PixiScene.sync() also lazily preloads, covering the boot race where
+    // pixi.init() finishes after the first applyEffect.)
+    if (pixi) {
       const refs: string[] = (engine as any).customImageRefs?.() ?? [];
       if (refs.length) pixi.preloadCustomRefs(refs).catch(() => { /* non-fatal */ });
     }

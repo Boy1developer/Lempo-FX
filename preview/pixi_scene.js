@@ -279,6 +279,13 @@ export class PixiScene {
             this.drawGrid(W, H);
         }
         const n = Math.min(this.engine.activeCount, POOL);
+        // Lazily preload any custom-shape image textures not yet loaded (covers
+        // the boot race where pixi.init() finishes after the first applyEffect).
+        const pending = (this.engine.customImageRefs
+            ? this.engine.customImageRefs()
+            : []
+        ).filter((r) => !this.customTex.has(r));
+        if (pending.length) this.preloadCustomRefs(pending);
         const wantBlend = this.pixiBlend(this.engine.blendingMode());
         if (wantBlend !== this.blend) {
             this.blend = wantBlend;

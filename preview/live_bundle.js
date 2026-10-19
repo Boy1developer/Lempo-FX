@@ -79900,6 +79900,8 @@ var PixiScene = class {
       this.drawGrid(W, H2);
     }
     const n2 = Math.min(this.engine.activeCount, POOL);
+    const pending = (this.engine.customImageRefs ? this.engine.customImageRefs() : []).filter((r2) => !this.customTex.has(r2));
+    if (pending.length) this.preloadCustomRefs(pending);
     const wantBlend = this.pixiBlend(this.engine.blendingMode());
     if (wantBlend !== this.blend) {
       this.blend = wantBlend;
@@ -80006,7 +80008,7 @@ function applyEffect(eff) {
     document.getElementById("typeBadge").textContent = tag;
     loaded = true;
     showErr("");
-    if (pixi && pixi.ready) {
+    if (pixi) {
       const refs = engine.customImageRefs?.() ?? [];
       if (refs.length) pixi.preloadCustomRefs(refs).catch(() => {
       });
