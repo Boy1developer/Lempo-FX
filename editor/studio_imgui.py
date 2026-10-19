@@ -2700,6 +2700,9 @@ def trail_step_row(key):
         elif ty in ("color", "text", "file"):
             dpg.add_input_text(tag=tag, width=-1,
                                callback=cb_trail_text(key))
+            if ty == "file":
+                dpg.add_button(label="Import", width=60,
+                               callback=lambda *a, k=key: pick_trail_texture(k))
         else:
             dpg.add_input_float(tag=tag, width=-1, step=step,
                                 step_fast=step * 10.0,
@@ -3805,6 +3808,23 @@ def pick_material_texture():
     em_set(("material", "texture"), path)
     _set("em_tex", path)
     APP.mark_dirty()
+
+
+@_safe_action
+def pick_trail_texture(key="texture"):
+    path, err = _native_pick("image")
+    if err:
+        show_msg("Error", err)
+        return
+    if not path:
+        return
+    em_set(("trails", key), path)
+    try:
+        dpg.set_value(trail_tag(key), path)
+    except Exception:
+        pass
+    APP.mark_dirty()
+    rebake_trails_lut()
 
 
 @_safe_action
