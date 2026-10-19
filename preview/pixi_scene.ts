@@ -133,12 +133,14 @@ export class PixiScene {
     return Object.prototype.hasOwnProperty.call(this.tex, s) ? s : "circle";
   }
 
-  /** Preload custom-shape image textures from refs (relative URLs served by the preview server). */
+  /** Preload custom-shape image textures from refs (served by the preview server). */
   async preloadCustomRefs(refs: string[]): Promise<void> {
+    const base = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, "/");
     for (const ref of refs) {
       if (this.customTex.has(ref)) continue;
       try {
-        const t = await PIXI.Texture.fromURL(ref);
+        const url = new URL(ref, base).href;
+        const t = await PIXI.Texture.from(url);
         this.customTex.set(ref, t);
       } catch (e) {
         console.warn("[PixiScene] Failed to load custom texture:", ref, e);
