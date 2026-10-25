@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "captured_at_utc": "2026-10-25T12:32:13.334822+00:00",
+  "environment": {
+    "os": "Windows-10-10.0.19045-SP0",
+    "machine": "DESKTOP-2O3SIPG",
+    "processor": "AMD64 Family 21 Model 19 Stepping 1, AuthenticAMD",
+    "python": "3.14.3",
+    "dearpygui": "2.3.1",
+    "particle_core": true
+  },
+  "method": {
+    "warmup_seconds_per_scene": 2.0,
+    "measured_seconds_per_scene": 5.0,
+    "frame_interval": "wall time around studio.frame() + render_dearpygui_frame()",
+    "draw_calls": "Dear PyGui does not expose GPU draw-call statistics; null means unavailable. drawlist_commands is a CPU-side command-count proxy, not GPU draw calls.",
+    "cpu": "process CPU time per frame plus process utilization over each measured interval"
+  },
+  "results": [
+    {
+      "template": "Explosion",
+      "mode": "2d",
+      "samples": 301,
+      "frame_ms": {
+        "p50": 16.533,
+        "p95": 17.062
+      },
+      "cpu": {
+        "mean_ms_per_frame": 3.426,
+        "process_utilization_percent": 21.2
+      },
+      "drawlist_commands": {
+        "mean": 52.2,
+        "p95": 184.0
+      },
+      "draw_calls": null
+    },
+    {
+      "template": "Explosion",
+      "mode": "3d",
+      "samples": 301,
+      "frame_ms": {
+        "p50": 16.55,
+        "p95": 16.988
+      },
+      "cpu": {
+        "mean_ms_per_frame": 5.502,
+        "process_utilization_percent": 33.6
+      },
+      "drawlist_commands": {
+        "mean": 68.0,
+        "p95": 83.0
+      },
+      "draw_calls": null
+    },
+    {
+      "template": "Fire",
+      "mode": "2d",
+      "samples": 301,
+      "frame_ms": {
+        "p50": 16.549,
+        "p95": 16.972
+      },
+      "cpu": {
+        "mean_ms_per_frame": 7.89,
+        "process_utilization_percent": 47.7
+      },
+      "drawlist_commands": {
+        "mean": 91.1,
+        "p95": 94.0
+      },
+      "draw_calls": null
+    },
+    {
+      "template": "Fire",
+      "mode": "3d",
+      "samples": 301,
+      "frame_ms": {
+        "p50": 16.547,
+        "p95": 17.0
+      },
+      "cpu": {
+        "mean_ms_per_frame": 4.983,
+        "process_utilization_percent": 29.9
+      },
+      "drawlist_commands": {
+        "mean": 70.6,
+        "p95": 72.0
+      },
+      "draw_calls": null
+    },
+    {
+      "template": "Rain",
+      "mode": "2d",
+      "samples": 301,
+      "frame_ms": {
+        "p50": 16.528,
+        "p95": 16.814
+      },
+      "cpu": {
+        "mean_ms_per_frame": 6.333,
+        "process_utilization_percent": 38.3
+      },
+      "drawlist_commands": {
+        "mean": 200.6,
+        "p95": 206.0
+      },
+      "draw_calls": null
+    },
+    {
+      "template": "Rain",
+      "mode": "3d",
+      "samples": 301,
+      "frame_ms": {
+        "p50": 16.56,
+        "p95": 17.077
+      },
+      "cpu": {
+        "mean_ms_per_frame": 6.177,
+        "process_utilization_percent": 38.3
+      },
+      "drawlist_commands": {
+        "mean": 114.2,
+        "p95": 117.0
+      },
+      "draw_calls": null
+    },
+    {
+      "template": "Snow",
+      "mode": "2d",
+      "samples": 301,
+      "frame_ms": {
+        "p50": 16.552,
+        "p95": 16.966
+      },
+      "cpu": {
+        "mean_ms_per_frame": 6.022,
+        "process_utilization_percent": 36.8
+      },
+      "drawlist_commands": {
+        "mean": 82.9,
+        "p95": 86.0
+      },
+      "draw_calls": null
+    },
+    {
+      "template": "Snow",
+      "mode": "3d",
+      "samples": 301,
+      "frame_ms": {
+        "p50": 16.555,
+        "p95": 16.932
+      },
+      "cpu": {
+        "mean_ms_per_frame": 5.295,
+        "process_utilization_percent": 32.1
+      },
+      "drawlist_commands": {
+        "mean": 55.7,
+        "p95": 57.0
+      },
+      "draw_calls": null
+    }
+  ]
+}

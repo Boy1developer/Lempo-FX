@@ -1,153 +1,135 @@
-# بنية تطبيق Lempo Particle Editor — كاملة
+# بنية مشروع Lempo Particle Editor
 
-> محدّثة بعد التنظيم الاحترافي (مجلدات `editor/` `tests/` `tools/` `packaging/`).
+> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ نقل الـviewport إلى WebView لم يُنفّذ بعد. الموجود حاليًا هو Spike A وSpike B وخط أساس الأداء ضمن `LEMPO_VIEWPORT_MIGRATION_PLAN.md`.
 
-## 1) شجرة الملفات (بدون `node_modules` / `dist` / `__pycache__`)
+## 1) شجرة المشروع
 
-```
+```text
 Lempo-FX/
 ├── editor/
-│   ├── studio_imgui.py             # الإديتور الرئيسي (Dear PyGui/ImGui + drawlist viewport)
-│   └── particle_studio.py          # نسخة Tk الاحتياطية + طبقة اللوجيك المشتركة
-├── tests/
-│   ├── bootstrap.py                # إعداد sys.path (الجذر + editor/)
-│   ├── test_imgui_nav.py           # نافيجيشن/سبلتر/تحويل النوع
-│   ├── test_imgui_logic.py         # لوجيك المحاكاة + parity مع C++
-│   ├── test_imgui_build.py         # بناء الواجهة كاملة headless
-│   └── test_imgui_color.py         # ألوان per-state + ألوان المحرك
-├── tools/
-│   ├── rebuild_app.py              # أمر البناء الواحد: compile → C++ → PyInstaller → smoke → shortcut
-│   └── make_icon.py                # توليد الأيقونات الشفافة من assets/download.png
-├── packaging/
-│   └── LempoParticleEditor.spec   # وصفة الـ exe (مسارات مطلقة من جذر الريبو)
-├── AdvancedParticleEmitter.json    # إكستنشن GDevelop (v1.0, type 2d/3d)
-├── sample_effect.json              # مثال export جاهز
-├── package.json / package-lock.json# اعتماديات المعاينة (three + pixi + typescript + esbuild)
-├── particle_core.pyd/.lib/.pdb     # نواة C++ المبنية (غير ملتزمة — تُبنى عبر core/build_core.py)
-├── Lempo Particle Editor.lnk      # شورتكت الويندوز (غير ملتزم — يُعاد توليده كل rebuild)
-│
+│   ├── studio_imgui.py          # المحرر الرئيسي: Dear PyGui والـviewport ثنائي/ثلاثي الأبعاد
+│   ├── particle_studio.py       # منطق مشترك ومحرك Python وواجهة Tk الاحتياطية
+│   ├── raster_view.py           # يربط رندر OpenGL بصورة GPU داخل DPG عند كثافة الجسيمات
+│   ├── mesh_cache.py            # قراءة وتحضير النماذج المخصصة
+│   ├── viewport_host.py         # مضيف pywebview تجريبي عبر --viewport-host (Spike B)
+│   ├── trail_render.py          # حسابات رسم شرائط trails
+│   ├── trail_widgets.py         # محررات منحنيات وتدرجات trails
+│   └── trail_templates_ui.py    # واجهة قوالب trails
 ├── core/
-│   ├── particle_core.cpp           # نواة المحاكاة C++ (مطابقة Python حرفيًا — 516 سطر)
-│   ├── build_core.py               # بناء الـ .pyd: MSVC > g++ > clang++ > Zig (83 سطر)
-│   ├── test_parity.py              # اختبار تطابق C++ مقابل Python (99/99)
-│   └── test_behavior.py            # اختبار سلوك/أداء (~4ms @2000 particle)
-│
+│   ├── particle_core.cpp        # نواة محاكاة C++
+│   ├── trail_templates.h        # تسجيل/دمج/بحث قوالب trails
+│   ├── build_core.py            # بناء امتداد Python الأصلي
+│   ├── test_parity.py           # مطابقة نتائج C++ وPython
+│   └── test_behavior.py         # اختبارات السلوك والأداء للنواة
 ├── render/
-│   ├── __init__.py
-│   ├── gl_view.py                  # ريندر GPU أوف‌سكرين: GLFW + ctypes OpenGL 3.3 + PPM (597 سطر)
-│   ├── test_gl.py                  # اختبار تهيئة GL
-│   ├── test_clip.py                # اختبار تطابق clip matrix مع StudioApp._proj
-│   └── test_cost.py                # قياس تكلفة photo.configure (سبب dirty-region)
-│
+│   └── gl_view.py               # رندر OpenGL 3.3 خارج الشاشة باستخدام GLFW وctypes
 ├── preview/
-│   ├── preview.html                # قالب صفحة المعاينة (هيدر Lempo)
-│   ├── preview.ts / preview.js     # محرك المعاينة + morph + zone/cone (452 سطر TS)
-│   ├── main.ts / main.js           # منطق الصفحة: boot embed + semantic poll (219 سطر)
-│   ├── three_scene.ts / .js        # طبقة WebGL ثلاثية الأبعاد مضيئة (282 سطر)
-│   ├── pixi_scene.ts / .js         # طبقة WebGL ثنائية الأبعاد PixiJS (166 سطر)
-│   ├── live_bundle.js              # الباندل المدمج (esbuild — 4903 سطر)
-│   ├── live_effect.html            # صفحة مكتفية ذاتيًا 1.1MB (boot JSON، صفر fetch)
-│   ├── last_effect.json            # آخر تأثير (poll حي من المعاينة)
-│   ├── tsconfig.json
-│   ├── test_engine.mjs / test_engine3d.mjs / test_guides.mjs
-│   └── test_server.py
-│
-├── assets/
-│   ├── app_icon.png                # أيقونة PNG (شعار Lempo من icon.jpg)
-│   └── lemo.ico                # أيقونة الـ exe والشورتكت
-│
-├── dist/
-│   └── LempoParticleEditor.exe    # المخرج المتجمد (windowed، بدون كونسول)
-│
-└── node_modules/                   # three + pixi.js + typescript + esbuild (للبناء فقط)
-    ├── three/build/three.module.js  # ← يُضمَّن في الـ exe عبر spec datas
-    └── pixi.js/dist/pixi.mjs        # ← يُضمَّن في الـ exe عبر spec datas
+│   ├── preview.ts / preview.js  # محرك الجسيمات لمعاينة المتصفح
+│   ├── main.ts / main.js        # بدء المعاينة ومزامنة التأثير
+│   ├── three_scene.ts / .js     # مشهد 3D باستخدام Three.js
+│   ├── pixi_scene.ts / .js      # مشهد 2D باستخدام PixiJS
+│   ├── preview.html             # قالب صفحة المعاينة
+│   ├── live_bundle.js           # حزمة JavaScript للمعاينة
+│   ├── live_effect.html         # صفحة معاينة مستقلة مضمّنة الموارد
+│   ├── last_effect.json         # آخر تأثير يكتبه المحرر للمزامنة الحية
+│   └── test_*.mjs / test_server.py
+├── lempo-runtime/
+│   ├── src/                     # محمّل TypeScript لأنواع التأثيرات
+│   └── test_loader.mjs          # اختبار محمّل runtime
+├── contracts/
+│   ├── contracts.json           # مصدر العقود المشترك
+│   └── gen/                     # ملفات Python/C++/TypeScript المولّدة
+├── tests/                       # اختبارات المحرر والعقود والمحاكاة وtrails
+├── bench/
+│   ├── bench_cores.py           # قياس نواة المحاكاة
+│   ├── bench_preview.py         # قياسات مراحل العرض الحالية
+│   ├── bench_current_viewport.py # قياس مشاهد الـviewport الفعلية
+│   ├── baseline-viewport.json   # خط أساس Explosion/Fire/Rain/Snow في 2D و3D
+│   └── BASELINE.md              # خطوط أساس أقدم للنواة والمعاينة
+├── tools/
+│   ├── rebuild_app.py           # بناء التطبيق وإجراء smoke boot وإعادة إنشاء الاختصار
+│   ├── spike_viewport_bridge.py # Spike A: DPG + pywebview وقياس JSON Lines
+│   ├── build_preview.py         # إنشاء حزمة المعاينة
+│   ├── generate_contracts.py    # توليد وفحص العقود
+│   ├── make_icon.py             # إعداد الأيقونات
+│   └── patch_*.py               # أدوات ترقية/تعديل الإكستنشن
+├── packaging/
+│   └── LempoParticleEditor.spec # إعداد PyInstaller للنسخة one-file
+├── assets/                      # الأيقونات وقوالب trails المضمّنة
+├── presets/                     # أمثلة تأثيرات trails بصيغة التصدير
+├── AdvancedParticleEmitter.json # إكستنشن GDevelop
+├── sample_*.json                # أمثلة التأثيرات
+├── README.md                    # استخدام التطبيق وخصائصه
+├── PROGRESS.md                  # سجل العمل ونتائج المراحل
+└── LEMPO_VIEWPORT_MIGRATION_PLAN.md
 ```
 
-## 2) جدول الملفات: الدور + الحجم + السطور
+توجد مخرجات محلية مثل `particle_core.pyd` و`dist/` و`node_modules/` أثناء البناء، لكنها مخرجات وليست مصادر المشروع.
 
-### الجذر + المجلدات الجديدة
+## 2) المكونات ومسؤولياتها
 
-| المسار | الدور |
+| المكوّن | المسؤولية الحالية |
 |---|---|
-| `editor/studio_imgui.py` | الإديتور الرئيسي: Dear PyGui/ImGui + drawlist viewport + C++/Python sim + سيرفر المعاينة + تصدير JSON + undo/redo + Trails inspector المولّد من `TRAIL_SCHEMA` |
-| `editor/trail_widgets.py` | ودجت المنحنيات/التدرجات القابلة لإعادة الاستخدام (drawlist + mouse handlers، حدث واحد عند الإفلات، LUT bake عند التغيير فقط) |
-| `editor/trail_templates_ui.py` | متصفح قوالب الـ trails (Dear PyGui glue فقط): بطاقات 2-column + بحث/favs/recent + Apply بخطوة undo واحدة + حفظ/حذف بريسيتات المستخدم — كل الدمج/البحث/التحقق/LUTs/thumbnails في C++ |
-| `editor/trail_render.py` | رياضيات شرائط الـribbons (pure, بدون DPG): width(t)، ألوان الطبقات، flicker، stride caps — يستهلكها `paint_trails_2d/3d` |
-| `editor/particle_studio.py` | نسخة Tk الاحتياطية + طبقة اللوجيك المشتركة (defaults/templates/validation/sim) + `TRAIL_SCHEMA` (79 مفتاح) و `default_trails()` و `bake_curve/bake_gradient` + `app_base_dir()` لجذر الريبو |
-| `tests/test_imgui_*.py` | اختبارات headless: nav/splitter/type-switch + logic/parity + build + color |
-| `tests/test_trails_*.py` | اختبارات الـ trails: schema sync + roundtrip/heal + parity Python↔C++ (LUTs) + perf (300×32) + templates registry (27 تحميل/بحث/دمج/تحقق/thumbnails/حفظ-حذف) |
-| `assets/presets/trails/*/*.json` | 27 قالب trails جاهز (combat 5 / magic 6 / movement 5 / nature 6 / stylized 5) — تُشحن مع الـ exe عبر `assets` datas |
-| `tools/rebuild_app.py` | `python tools/rebuild_app.py` بعد أي تعديل: py_compile gate ← بناء C++ لو stale ← PyInstaller بالـ spec ← smoke boot 9 ثوانٍ ← توليد `.lnk` ← تنظيف `__pycache__` |
-| `tools/make_icon.py` | توليد الأيقونات من `icon.jpg` (قص مربع + مقاس 1024) |
-| `packaging/LempoParticleEditor.spec` | datas: `preview` + `assets` + `render` + `three.module.js` + `pixi.mjs` + `glfw3.dll` — hiddenimports: `particle_core, render.gl_view, glfw` — أيقونة `assets/lempo.ico` — `console=False` |
-| `AdvancedParticleEmitter.json` | إكستنشن GDevelop (v0.2.0) — يدعم pyramid/torus + morph + تعبير Flow (مُصلَّح) + تريل ribbons ثنائي/ثلاثي مع hideParticle (يُرقَّع عبر `tools/patch_trails_ext.py`) |
-| `sample_effect.json` | مثال export متوافق v1.0 |
-| `sample_trail_effect.json` | مثال trails (width curve + color gradient + texture scroll، 3D additive) |
-| `presets/trail_*.json` | بريسيتات الـ trails (Comet/Sword/Smoke/Beam/Neon/Rocket/Wand — ملفات effect عادية تُشحن مع الـ exe) |
-| `assets/download.png` | أرت قديم (شعار Lempo الأول) — لم يعد مصدر الأيقونات (المصدر الآن `icon.jpg`) |
-| `package.json` | `three@0.186 + pixi.js@8.21 + typescript@7 + esbuild@0.28` |
-| `particle_core.pyd` | نواة C++ المبنية فعليًا (غير ملتزمة) |
-| `particle_core.lib/.pdb` | مخلفات بناء MSVC (غير مطلوبة للتشغيل) |
-| `Lempo Particle Editor.lnk` | شورتكت: Target=`dist\LempoParticleEditor.exe` + Icon=`assets\lempo.ico` (غير ملتزم) |
+| `editor/studio_imgui.py` | واجهة Dear PyGui، المحرر والـinspector، اختيار وضع 2D/3D، عرض الجسيمات، تفاعل الفأرة والاختصارات، undo/redo، التصدير، وكتابة التأثير للمعاينة. يبدأ كذلك مضيف Spike B عند تمرير `--viewport-host`. |
+| `editor/particle_studio.py` | القيم الافتراضية والقوالب والتحقق ومحاكاة Python، والمنطق الذي تستخدمه واجهة Tk الاحتياطية. |
+| `editor/raster_view.py` و`render/gl_view.py` | يقدّمان مسار raster اختياريًا: GLFW/OpenGL يرسم خارج الشاشة ثم تُرفع صورة إلى DPG. يبقى رسم الخلفيات والأدلة والتفاعل في طبقة DPG. عند تعذر المسار أو عدم انطباقه يستمر الرسم بالـdrawlist. |
+| `core/particle_core.cpp` | تنفيذ C++ اختياري لمحاكاة الجسيمات. يستخدمه المحرر متى توفرت الوحدة الأصلية؛ توجد محاكاة Python كمسار احتياطي. |
+| `preview/` | معاينة منفصلة في المتصفح بمحرك TypeScript/JavaScript، وثلاثة أبعاد عبر Three.js وبعدان عبر PixiJS. الصفحة `live_effect.html` مجمعة لتعمل دون جلب مكتبات عبر الشبكة؛ المحرر يحدّث `last_effect.json` لمزامنة المعاينة. |
+| `AdvancedParticleEmitter.json` | تنفيذ الإكستنشن داخل GDevelop، ويستهلك التأثيرات المصدرة. يتطلب الإصدار الحالي GDevelop 5.6.284 أو أحدث لعرض 3D بالمقياس الصحيح. |
+| `lempo-runtime/` | حزمة TypeScript منفصلة لتحميل والتحقق من ملفات التأثير؛ ليست بديلًا عن الإكستنشن ولا عن محرّك المعاينة. |
+| `contracts/` | تعريف مشترك لشكل سجل الجسيمات والأشكال ونسخة التصدير وقيم easing وblend modes؛ الملفات داخل `contracts/gen/` مولّدة. |
 
-### `core/` — نواة المحاكاة
+### مسار رسم الـviewport الحالي
 
-| الملف | الدور | سطور |
-|---|---|---:|
-| `particle_core.cpp` | `step()` يخرج `x,y,z,r,color,shape,depth + alpha,wx,wy` — نفس `SHAPE_ORDER` (12 شكل) ونفس semantics الـ morph + `TrailCfg` (parse إعدادات الـ trails و LUTs مطابقة Python حرفيًا) + registry القوالب (`trail_templates.h`: تحقق/دمج/بحث/favs/recents/thumbnails/textures/حفظ بريسيتات) | 1336 |
-| `build_core.py` | ترتيب الكومبايلر: `cl > g++ > clang++ > Zig` (تثبيت تلقائي) — الخرج `particle_core.pyd` في جذر الريبو | 83 |
-| `test_parity.py` | تطابق عددي Python↔C++ (99/99 ناجح) | 56 |
-| `test_behavior.py` | سلوك + أداء (~4ms عند 2000 جسيم) | 96 |
+1. `studio_imgui.py` يحدّث المحاكاة لكل إطار، باستخدام C++ عند توفره أو Python كبديل.
+2. إذا كان raster متاحًا وينطبق على المشهد، يرسم `raster_view.py` طبقة الجسيمات في صورة OpenGL؛ ثم يرسم DPG الأدلة وواجهات التحكم فوقها.
+3. عند عدم استخدام raster، يرسم DPG الجسيمات ومكونات المشهد عبر drawlist مباشرة. trails تظهر في طبقة الـviewport ولا تستخدم مسار raster نفسه.
+4. هذه هي الواجهة الحالية. `viewport_host.py` حاليًا spike مستقل لفتح نافذة pywebview، وليس جسرًا موصولًا بالمحرر أو بديلًا عن الـviewport القديم.
 
-### `render/` — الـ GPU داخل الإديتور
+## 3) الإصدارات والعقود
 
-| الملف | الدور | سطور |
-|---|---|---:|
-| `gl_view.py` | سياق GLFW مخفي + OpenGL 3.3 بـ ctypes خام (بدون PyOpenGL/numpy — يعمل على Python 3.14) — خلفية+شبكة+جسيمات → بايتات PPM خام — `mat_clip_3d` تطابق `_proj` عدديًا — دعم `vp=(x0,y0,w2,h2)` للـ dirty-region | 597 |
-| `test_gl.py` / `test_clip.py` / `test_cost.py` | تهيئة GL / تطابق المصفوفة (0/3000 parity) / إثبات أن `photo.configure` هو عنق الزجاجة (28ms كامل ← 6ms نصف) | 35/44/47 |
+- `contracts/contracts.json` يحدد صيغة التصدير `1.2`، وحقول سجل الجسيمات (22 حقلًا)، وترتيب الأشكال الاثني عشر، ونافذة morph من `0.25` إلى `0.75`.
+- يستخدم `package.json` الآن `three 0.185.1` لمعاينة المتصفح لمطابقة GDevelop 5.6.284، مع `pixi.js ^8.21.0` وTypeScript وesbuild. نسخة Pixi للمعاينة ما زالت مختلفة عن GDevelop (7.4.2) لحين قرار توافق مستقل.
+- الحد الأدنى المدعوم من الإكستنشن هو GDevelop 5.6.284؛ إصدار GDJS هذا يستخدم Three.js runtime `0.185.1` وPixiJS `7.4.2`. نتيجة الفحص والمصادر الرسمية مسجلة في `docs/viewport-migration-notes.md`.
+- `lempo-runtime/` (إصدار الحزمة `1.0.0`) محمّل/مطبّع typed وليس محرك محاكاة. التنفيذ الفعلي للمحاكاة موجود في أكواد الإكستنشن؛ المحمّل لا يحتفظ حاليًا بكل حقول runtime مثل seed وfields وtrails، والتفاصيل في ملاحظات الترحيل.
 
-### `preview/` — معاينة المتصفح السريعة
+## 4) البناء والتشغيل
 
-| الملف | الدور | سطور |
-|---|---|---:|
-| `preview.html` | القالب المضمّن في الـ exe — هيدر `Lempo` + `boot-effect` | 64 |
-| `preview.ts` | `ParticleEngine`: قيم birth→death (easing hyphenated) + shape flip عند raw≥0.5 + zone/cone | 452 |
-| `main.ts` | boot JSON مدمج (بدون fetch) + poll دلالي لـ `last_effect.json` — مصدر واحد | 219 |
-| `three_scene.ts` | طبقة 3D مضيئة (lights/shadows/guides) + تبديل mesh لكل state | 282 |
-| `pixi_scene.ts` | طبقة 2D بـ PixiJS WebGL + `needShape` لكل state | 166 |
-| `live_bundle.js` / `live_effect.html` | مخرجات esbuild المدمجة (1.1MB، صفر fetch — تتجاوز حجب localhost) | 4903/4969 |
-| `last_effect.json` | الجسر الحي بين الإديتور والمعاينة (سطر واحد JSON) | 1 |
-| `test_engine.mjs` / `test_engine3d.mjs` / `test_guides.mjs` / `test_server.py` | خضراء: المحرك + المشهد + الأدلة + السيرفر | — |
+### التطوير
 
-### `assets/` + `dist/`
-
-| المسار | الدور |
-|---|---|
-| `assets/app_icon.png` + `assets/lempo.ico` | شعار Lempo — الأيقونة الداخلية (النافذة/اللوجو) + الخارجية (الـ exe والشورتكت) |
-| `dist/LempoParticleEditor.exe` | التطبيق المتجمد (windowed) — يحمل كل تغيير بعد كل `tools/rebuild_app.py` |
-
-## 3) ثوابت مشتركة (عقود بين المكونات)
-
-- **سجل الجسيم:** `[x,y,vx,vy,age,c0,c1,s0,s1,life,z,vz,shape,tracks,dx,dy,dz,gx,gy,gz,sizeRatio,speedRatio]`
-- **`SHAPE_ORDER` (12):** `circle, square, triangle, star, diamond, line, custom, sphere, cube, pyramid, torus, billboard` — مشترك Python↔C++
-- **تنسيق التصدير:** JSON متوافق مع الإكستنشن v1.0 (`2d: needShape` / `3d: mesh swap`) — قيم easing بشرطة (`linear/ease-in/ease-out/ease-in-out`)
-- **إحداثيات GL:** أحجام الشاشة تُفك مرة واحدة في vertex shader (ممنوع القسمة المسبقة في Python) — `mat_clip_3d == StudioApp._proj` عدديًا
-- **ترتيب طبقات الكانفس:** خلفية ← شبكة ← صورة GPU (dirty subrect) ← أدلة/zone ← vignette (4 شرائط حافة) ← جيزمو (فوق الكل)
-- **مسارات `_MEIPASS`:** الـ exe المجمد يقرأ `preview/` و`assets/` و`render/` وDLLs الـ glfw من داخل الحزمة
-- **الموضع:** جيزمو الباعث للمعاينة فقط — الصادرات متمركزة على أوبجكت GDevelop
-
-## 4) تدفق البيانات والبناء
-
-```
-core/particle_core.cpp --build_core.py--> particle_core.pyd --step()--> editor/particle_studio.py + editor/studio_imgui.py
-                                                                              ├─ canvas (خلفية+شبكة tkinter)
-                                                                              ├─ render/gl_view.py (GPU subrect → PPM → PhotoImage)
-                                                                              ├─ preview/last_effect.json → live_effect.html (poll)
-                                                                              └─ AdvancedParticleEmitter.json (export v1.0)
-editor/ + preview/ + assets/ + render/ --tools/rebuild_app.py + packaging/.spec--> dist/LempoParticleEditor.exe + .lnk
+```powershell
+python editor/studio_imgui.py
 ```
 
-## 5) سير العمل المعتمد
+### بناء Windows
 
-1. عدّل أي ملف → 2. `python tools/rebuild_app.py` (إجباري — الـ exe والشورتكت يحملان كل تغيير) → 3. جرّب من الشورتكت → 4. للمعاينة: من داخل الإديتور (القالب مضمّن، لا كاش قديم).
+```powershell
+python tools/rebuild_app.py
+```
+
+يبني السكربت نواة C++ عند الحاجة، ثم يحزم التطبيق بواسطة `packaging/LempoParticleEditor.spec`، ويجري smoke boot، ويعيد إنشاء اختصار Windows. الحزمة تتضمن ملفات المعاينة والأصول و`render/` ومكتبتي Three.js وPixiJS وملفات GLFW المتاحة. إعداد PyInstaller يتضمن `viewport_host` و`webview` لاختبار `--viewport-host`.
+
+لاستخدام مسار `--viewport-host` في بيئة بناء جديدة، يجب تثبيت اعتماد pywebview قبل البناء. على Windows، Spike B يجبر EdgeChromium ويحتاج WebView2 Runtime و.NET Framework 4.6.2 أو أحدث. فتح `preview/live_effect.html` في المتصفح الافتراضي عند تعذر WebView2 موثق كـfallback، لكن تشغيله تلقائيًا لم يُنفذ بعد.
+
+## 5) القياس وخطة ترحيل الـviewport
+
+- `tools/spike_viewport_bridge.py`: تشغيل DPG مع عملية pywebview فرعية وقياس round-trip JSON Lines. نتيجة Spike A: وسيط `0.259 ms` وp95 `31.046 ms` من 100 عينة.
+- `editor/viewport_host.py`: إثبات تشغيل مضيف EdgeChromium من نسخة PyInstaller عبر `--viewport-host` (Spike B). لا يرحّل هذا المسار بيانات الواجهة بعد.
+- `bench/bench_current_viewport.py`: يعيد قياس القوالب الأربعة في وضعَي 2D و3D، ويكتب إلى `bench/baseline-viewport.json`. خط الأساس الحالي: p50 للإطار `16.528–16.560 ms` وp95 `16.814–17.077 ms` على الجهاز المسجل داخل ملف JSON.
+- Dear PyGui لا يوفّر عداد GPU draw calls؛ لذلك `draw_calls` في خط الأساس `null` وعدد drawlist commands مجرد proxy موضح في التقرير.
+- مراحل نقل الـviewport والتوافق والأداء المتبقية موثقة في `LEMPO_VIEWPORT_MIGRATION_PLAN.md`، ونتائج الاستكشاف في `docs/viewport-migration-notes.md`.
+
+## 6) تدفق البيانات المبسّط
+
+```text
+contracts/contracts.json ──generate_contracts.py──> contracts/gen/*
+core/particle_core.cpp ──build_core.py──> particle_core.pyd
+                                                │
+editor/studio_imgui.py ──step()─────────────────┤
+  ├─ Dear PyGui drawlist                         ├─ render/raster_view.py + render/gl_view.py (اختياري)
+  ├─ preview/last_effect.json ──> preview/live_effect.html
+  └─ export JSON ──> AdvancedParticleEmitter.json ──> GDevelop
+
+editor/ + core/ + render/ + preview/ + assets/ + presets/
+    └── packaging/LempoParticleEditor.spec ──PyInstaller──> dist/LempoParticleEditor.exe
+```
