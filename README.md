@@ -40,7 +40,7 @@ Lempo Particle Editor is a two-part toolkit:
 | **Lempo Particle Editor** | A Dear PyGui desktop app (`LempoParticleEditor.exe`) for designing effects with a live viewport, then exporting them as JSON. |
 | **Advanced Particle Emitter** | A GDevelop extension (`AdvancedParticleEmitter.json`) that renders those effects in-game: **2D** via [PixiJS](https://pixijs.com) and **3D** via [Three.js](https://threejs.org). |
 
-Both parts share a single source of truth for particle behavior, shapes, and the export format (see [Shared Contracts](#-shared-contracts)), so an effect looks the same in the editor, the browser preview, and your game.
+Both parts share the export schema and named contracts (see [Shared Contracts](#-shared-contracts)). The browser preview's Three.js, PixiJS, and Canvas adapters use the same renderer-agnostic TypeScript particle engine. The GDevelop extension still has its own simulation implementation, so a few behaviors are not yet record-identical across the preview and game runtime; see the [viewport migration notes](docs/viewport-migration-notes.md).
 
 > Works in any GDevelop project — design the effect in the editor, play it in-game with the Advanced Particle Emitter extension.
 
@@ -96,8 +96,8 @@ Both parts share a single source of truth for particle behavior, shapes, and the
 - **Per-state colors** — birth / mid / death each keep their own color. White means natural materials; any other color tints over the base.
 - **Gradual shape morph** — birth-to-death shapes cross-fade inside the `(0.25, 0.75)` window instead of snapping (desktop viewport + browser preview; game runtime keeps the classic swap for meshes).
 - **Ready-made templates** — Explosion, Fire, Rain, Snow (2D + 3D variants), with 100-step undo/redo.
-- **Force fields** *(v1.1)* — age-phased turbulence, Y-axis vortex, linear-falloff attractor, and a bounce/friction collision plane. All off by default (legacy motion stays bit-identical).
-- **Deterministic seed** — a nonzero `seed` replays the identical effect everywhere: editor (Python + C++), browser preview, and GDevelop runtime. `0` keeps legacy unseeded behavior.
+- **Force fields** *(export v1.2)* — age-phased turbulence, Y-axis vortex, linear-falloff attractor, and a bounce/friction collision plane. All off by default (legacy motion stays bit-identical).
+- **Deterministic seed** — a nonzero `seed` makes replay deterministic within each runtime; `0` keeps legacy unseeded behavior. The preview and GDevelop extension use separate spawn implementations, so identical seeds do not yet guarantee identical particle records between them.
 - **Blend modes** — Normal, Additive, Subtractive, Multiply, Screen, Lighten, Overlay, selectable per emitter (see [Blend Modes](#-blend-modes)).
 - **Trails & Ribbons** — a dedicated mode (key `4` for 2D, key `5` for 3D in the startup dialog) with a Unity-style inspector, width/gradient curve editors, `time` / `distance` emission, and a browser of **27 ready-made templates** (combat, magic, movement, nature, stylized) with search, favorites, and your own saved presets. 👉 Full details: [docs/trails.md](docs/trails.md)
 
@@ -107,11 +107,13 @@ Both parts share a single source of truth for particle behavior, shapes, and the
 - **InstancedMesh batching (3D primitives)** — ~580 draw calls collapse into ~12 buckets, verified **pixel-identical** per particle (matrix, color, alpha), including morph flips and all blend modes.
 - **Lazy buckets & pooled runtime** — empty buckets cost zero draw calls, and shape-aware mesh/material pooling keeps steady state free of per-frame allocations. Automatic fallback to the classic path if instancing is unavailable.
 - **Dual simulation core** — a Python reference plus an optional compiled **C++ core** for faster live preview, checked for numerical parity (99/99 cases) against Python.
+- **Shared browser-preview simulation** — the Three.js, PixiJS, and Canvas adapters consume one TypeScript engine and its reusable typed-array particle frames; they do not each implement their own simulation.
 - **Adaptive viewport** — crisp vector drawlist for small particle counts; above ~900 particles the particle layer renders offscreen and uploads as a texture while guides/gizmo stay vector.
 
 ### 🔍 Previews
 - **In-editor GPU preview** — a minimal offscreen OpenGL 3.3 renderer built on raw `ctypes` (no PyOpenGL or numpy needed).
-- **Browser fast preview** — a self-contained `live_effect.html` (≈1.1 MB, zero network fetches) rendering the same effect live in Three.js (3D) / PixiJS (2D), with 500 ms live-sync. Trail mode renders ribbons in the preview too and hides the particle dots, exactly like the editor viewport.
+- **Browser fast preview** — a self-contained `live_effect.html` (≈1.1 MB, zero network fetches) using the shared TypeScript engine, Three.js (3D), PixiJS (2D), and a Canvas fallback, with 500 ms live-sync. Trail mode renders ribbons in the preview too and hides the particle dots, like the editor viewport.
+- **Renderer versions** — the preview pins Three.js `0.185.1`, matching GDevelop 5.6.284. Browser PixiJS `8.21` is still a different major from GDevelop's `7.4.2`; the compatibility difference is documented in the [migration notes](docs/viewport-migration-notes.md).
 - **In-game trails (extension v0.2.0)** — exported trail effects render as ribbons inside GDevelop as well (2D quad strips, 3D billboard strips, pooled and blend-aware), with `hideParticle` honored. No new objects: the existing emitters grow trail support, and trail-less effects render bit-identical to before.
 - **OS-native file dialogs** — Save / Export / Open use the OS file picker, because Dear PyGui's built-in dialogs return empty results here.
 
@@ -121,7 +123,7 @@ Both parts share a single source of truth for particle behavior, shapes, and the
 
 ### 1. Get the editor
 
-Download `LempoParticleEditor.exe` from the **[Releases](https://github.com/Boy1developer/Lempo-Particle-Editor/releases)** page (or from **[itch.io](https://eg-dev1.itch.io/lempo-fx)**) and run it. No Python installation required. The window title shows `v0.2.0`; it pairs with extension `v0.2.0` and export format `v1.1` (v1.0 files migrate automatically).
+Download `LempoParticleEditor.exe` from the **[Releases](https://github.com/Boy1developer/Lempo-Particle-Editor/releases)** page (or from **[itch.io](https://eg-dev1.itch.io/lempo-fx)**) and run it. No Python installation required. The window title shows `v0.2.0`; it pairs with extension `v0.2.0` and export format `v1.2` (v1.0 and v1.1 files migrate automatically).
 
 **Requirements:** Windows 10/11 (64-bit) · GPU with OpenGL 3.3 support
 
@@ -184,11 +186,11 @@ Unsupported combinations fall back to Normal with a **single** `console.warn` �
 
 ## 🤝 Shared Contracts
 
-Everything that must stay identical across Python, C++, the browser preview, and the GDevelop extension lives in one place: [`contracts/contracts.json`](contracts/contracts.json) — particle record layout, `SHAPE_ORDER`, easings, blend modes, export schema, and morph window.
+The shared data contract and named constants live in one place: [`contracts/contracts.json`](contracts/contracts.json) — particle record layout, `SHAPE_ORDER`, easings, blend modes, export schema, and morph window. Simulation code is shared between the browser preview's renderers; the GDevelop extension still has its own implementation, with parity work tracked separately.
 
 **Edit the JSON, run `tools/generate_contracts.py`, never the generated outputs.** CI fails on stale files or drifted consumers.
 
-**Export format v1.1** is validated on save and load, and `migrate_effect()` heals old files automatically (v1.0 → v1.1, missing blend mode / seed, camelCase easings).
+**Export format v1.2** is validated on save and load, and `migrate_effect()` upgrades v1.0/v1.1 files, fills missing optional values such as blend mode and seed, and normalizes camelCase easings.
 
 👉 Full details (generated bindings, consumers, particle record layout): [docs/contracts.md](docs/contracts.md)
 
@@ -201,8 +203,8 @@ Everything that must stay identical across Python, C++, the browser preview, and
 | `editor/` | Desktop app — Dear PyGui UI (`studio_imgui.py`), Tk fallback and shared logic layer (`particle_studio.py`) |
 | `core/` | C++ simulation core (`particle_core.cpp`) + parity and behavior tests |
 | `render/` | In-editor OpenGL renderer and render tests |
-| `preview/` | Browser fast preview (Three.js / PixiJS) and its tests |
-| `lempo-runtime/` | TypeScript runtime copy used by the GDevelop extension |
+| `preview/` | Browser fast preview adapters (Three.js / PixiJS / Canvas), entry points, and tests |
+| `lempo-runtime/` | Typed effect loader plus the renderer-agnostic TypeScript engine and trail math used by the browser preview; GDevelop retains a separate runtime implementation |
 | `contracts/` | Shared contracts (`contracts.json`) and generated bindings (`gen/`) |
 | `assets/` | App icon and bundled presets (`presets/trails/`) |
 | `presets/` | Effect presets |
@@ -216,7 +218,7 @@ Everything that must stay identical across Python, C++, the browser preview, and
 
 ## 🧪 Testing
 
-CI runs the parity, behavior, and contract checks on every push (`.github/workflows/ci.yml`). Highlights: Python ↔ C++ parity (**99/99**), seed replay, force fields, blend modes, trails, and the shipped GDevelop runtime tested headlessly.
+CI runs the parity, behavior, and contract checks on every push (`.github/workflows/ci.yml`). Highlights: Python ↔ C++ parity (**99/99**), 120-frame seeded preview-engine regression snapshots, typed-array frame-buffer reuse, seed replay, force fields, blend modes, trails, and the shipped GDevelop runtime tested headlessly.
 
 👉 Full test matrix: [docs/testing.md](docs/testing.md)
 
@@ -246,8 +248,10 @@ CI runs the parity, behavior, and contract checks on every push (`.github/workfl
 - [x] Trails & Ribbons renderer (79-key TRAIL_SCHEMA, 27 templates, Godot-style distance emission, C++ registry + DPG browser) *(v0.2.0)*
 - [x] Template browser with search, favorites, and user presets + world-space 2D zoom
 - [x] Over-life Bézier curves and gradient editor
+- [x] Shared TypeScript engine for browser-preview renderers, typed-array handoff, and seeded frame-by-frame regression checks *(viewport migration Phase 1)*
 
 **Planned**
+- [ ] Bring the GDevelop extension simulation into explicit particle-record parity with the shared browser-preview engine
 - [ ] Flipbook animation, UV scroll, soft particles
 - [ ] Effect node tree with parent/child emitters and sub-emitters
 - [ ] Timeline with scrubbing and a preset gallery
