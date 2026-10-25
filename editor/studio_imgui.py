@@ -4761,5 +4761,8 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--viewport-host" in sys.argv:
+        from viewport_host import run_viewport_host
+        raise SystemExit(run_viewport_host())
     main()
 
