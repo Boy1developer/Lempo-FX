@@ -1,0 +1,234 @@
+{
+  "version": "1.2",
+  "type": "2d",
+  "emitter": {
+    "flow": 40.0,
+    "flowMode": "rate",
+    "flowInterval": 1,
+    "maxParticles": 300,
+    "reservoir": 50,
+    "mode": "Infinite",
+    "reverse": false,
+    "alignDir": false,
+    "rotationMode": "speed",
+    "gravity": {
+      "x": 0.0,
+      "y": 0.0
+    },
+    "emissionZone": {
+      "shape": "Circle",
+      "rotation": 0.0,
+      "radius": 10.0,
+      "width": 100.0,
+      "height": 60.0,
+      "length": 100.0,
+      "mode": "Surface",
+      "showZone": true
+    },
+    "propagationCone": {
+      "direction": 0.0,
+      "spread": 90.0,
+      "showCone": true
+    },
+    "blendingMode": "Normal",
+    "seed": 0,
+    "fields": {
+      "turbulence": {
+        "amount": 0.0,
+        "scale": 0.05,
+        "speed": 1.0
+      },
+      "vortex": {
+        "strength": 0.0
+      },
+      "attractor": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "strength": 0.0,
+        "radius": 200.0
+      },
+      "collision": {
+        "planeY": null,
+        "bounce": 0.5,
+        "friction": 0.1
+      }
+    },
+    "trails": {
+      "enabled": false,
+      "source": "particles",
+      "maxPoints": 32,
+      "lifetime": 1.0,
+      "minDist": 4.0,
+      "minTime": 0.016,
+      "emitMode": "time",
+      "sectionLength": 8.0,
+      "autodestruct": false,
+      "timeScale": 1.0,
+      "space": "world",
+      "fadeStop": 0.0,
+      "hideParticle": true,
+      "lifetimeJitter": 0.0,
+      "widthStart": 8.0,
+      "widthEnd": 1.0,
+      "widthMult": 1.0,
+      "widthCurve": [
+        [
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ],
+      "smoothing": 0,
+      "cornerVerts": 0,
+      "capVerts": 0,
+      "capStyle": "flat",
+      "ribbon": "billboard",
+      "taper": 1.0,
+      "taperHead": false,
+      "taperTail": true,
+      "wNoiseAmt": 0.0,
+      "wNoiseScale": 0.05,
+      "simplifyTol": 0.0,
+      "minScreenWidth": 2.5,
+      "colorHead": "#ffffff",
+      "colorTail": "#ffffff",
+      "alphaHead": 255,
+      "alphaTail": 0,
+      "colorStops": [
+        [
+          0.0,
+          "#ffffff"
+        ],
+        [
+          1.0,
+          "#ffffff"
+        ]
+      ],
+      "alphaStops": [
+        [
+          0.0,
+          255
+        ],
+        [
+          1.0,
+          0
+        ]
+      ],
+      "lifeColorStops": [
+        [
+          0.0,
+          "#ffffff"
+        ],
+        [
+          1.0,
+          "#ffffff"
+        ]
+      ],
+      "lifeAlphaStops": [
+        [
+          0.0,
+          255
+        ],
+        [
+          1.0,
+          255
+        ]
+      ],
+      "intensity": 1.0,
+      "inheritColor": false,
+      "fadeTail": false,
+      "tailLen": 0.25,
+      "edgeSoftness": 0.6,
+      "coreColor": "",
+      "coreWidth": 0.35,
+      "edgeColor": "#ffffff",
+      "glowWidth": 0.0,
+      "glowAlpha": 0.0,
+      "flickerAmt": 0.0,
+      "flickerHz": 8.0,
+      "texture": "",
+      "blend": "inherit",
+      "uvMode": "stretch",
+      "tileLength": 64.0,
+      "tileX": 1.0,
+      "tileY": 1.0,
+      "offX": 0.0,
+      "offY": 0.0,
+      "scrollU": 0.0,
+      "scrollV": 0.0,
+      "flipCols": 0,
+      "flipRows": 0,
+      "flipFPS": 0.0,
+      "trailMode": "per-particle",
+      "ratio": 1.0,
+      "sizeAffectsWidth": false,
+      "sizeAffectsLifetime": false,
+      "dieWithParticles": true,
+      "splitRibbons": false,
+      "attachRibbons": false,
+      "genLighting": false,
+      "castShadow": false,
+      "receiveShadow": false,
+      "sortLayer": "",
+      "sortOrder": 0,
+      "softFade": 0.0,
+      "gravity": 0.0,
+      "drag": 0.0,
+      "noise": 0.0
+    }
+  },
+  "states": [
+    {
+      "id": "state_0",
+      "role": "birth",
+      "label": "birth",
+      "duration": 1.0,
+      "shape": "custom",
+      "easing": "linear",
+      "starPoints": 5,
+      "starInnerRatio": 0.4,
+      "appearance": {
+        "size": 8,
+        "sizeMax": 12,
+        "color": "#ffaa00",
+        "opacity": 255
+      },
+      "movement": {
+        "minSpeed": 60,
+        "maxSpeed": 160,
+        "minRot": -90,
+        "maxRot": 90
+      },
+      "customShapeRefs": [
+        "Copilot_20250905_182338.png"
+      ]
+    },
+    {
+      "id": "state_1",
+      "role": "death",
+      "label": "death",
+      "duration": 0.5,
+      "shape": "circle",
+      "easing": "ease-out",
+      "starPoints": 5,
+      "starInnerRatio": 0.4,
+      "appearance": {
+        "size": 2,
+        "sizeMax": 4,
+        "color": "#ff3300",
+        "opacity": 0
+      },
+      "movement": {
+        "minSpeed": 20,
+        "maxSpeed": 60,
+        "minRot": -90,
+        "maxRot": 90
+      },
+      "customShapeRefs": []
+    }
+  ]
+}
