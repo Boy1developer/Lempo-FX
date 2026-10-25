@@ -24,7 +24,8 @@ Lempo-FX/
 ├── render/
 │   └── gl_view.py               # رندر OpenGL 3.3 خارج الشاشة باستخدام GLFW وctypes
 ├── preview/
-│   ├── preview.ts / preview.js  # محرك الجسيمات لمعاينة المتصفح
+│   ├── preview.ts / preview.js  # واجهة إعادة تصدير لمحرك lempo-runtime
+│   ├── canvas_renderer.ts / .js # fallback للرسم على Canvas، منفصل عن المحاكاة
 │   ├── main.ts / main.js        # بدء المعاينة ومزامنة التأثير
 │   ├── three_scene.ts / .js     # مشهد 3D باستخدام Three.js
 │   ├── pixi_scene.ts / .js      # مشهد 2D باستخدام PixiJS
@@ -34,7 +35,7 @@ Lempo-FX/
 │   ├── last_effect.json         # آخر تأثير يكتبه المحرر للمزامنة الحية
 │   └── test_*.mjs / test_server.py
 ├── lempo-runtime/
-│   ├── src/                     # محمّل TypeScript لأنواع التأثيرات
+│   ├── src/                     # محمّل التأثير ومحرك محاكاة TS ورياضيات trails
 │   └── test_loader.mjs          # اختبار محمّل runtime
 ├── contracts/
 │   ├── contracts.json           # مصدر العقود المشترك
@@ -74,9 +75,9 @@ Lempo-FX/
 | `editor/particle_studio.py` | القيم الافتراضية والقوالب والتحقق ومحاكاة Python، والمنطق الذي تستخدمه واجهة Tk الاحتياطية. |
 | `editor/raster_view.py` و`render/gl_view.py` | يقدّمان مسار raster اختياريًا: GLFW/OpenGL يرسم خارج الشاشة ثم تُرفع صورة إلى DPG. يبقى رسم الخلفيات والأدلة والتفاعل في طبقة DPG. عند تعذر المسار أو عدم انطباقه يستمر الرسم بالـdrawlist. |
 | `core/particle_core.cpp` | تنفيذ C++ اختياري لمحاكاة الجسيمات. يستخدمه المحرر متى توفرت الوحدة الأصلية؛ توجد محاكاة Python كمسار احتياطي. |
-| `preview/` | معاينة منفصلة في المتصفح بمحرك TypeScript/JavaScript، وثلاثة أبعاد عبر Three.js وبعدان عبر PixiJS. الصفحة `live_effect.html` مجمعة لتعمل دون جلب مكتبات عبر الشبكة؛ المحرر يحدّث `last_effect.json` لمزامنة المعاينة. |
+| `preview/` | معاينة المتصفح مع محوّلات Three.js وPixiJS وCanvas. `preview.ts` يعيد تصدير محرك المحاكاة من `lempo-runtime`، بينما `canvas_renderer.ts` يعزل fallback الرسم على Canvas. الصفحة `live_effect.html` مجمعة لتعمل دون جلب مكتبات عبر الشبكة؛ المحرر يحدّث `last_effect.json` لمزامنة المعاينة. |
 | `AdvancedParticleEmitter.json` | تنفيذ الإكستنشن داخل GDevelop، ويستهلك التأثيرات المصدرة. يتطلب الإصدار الحالي GDevelop 5.6.284 أو أحدث لعرض 3D بالمقياس الصحيح. |
-| `lempo-runtime/` | حزمة TypeScript منفصلة لتحميل والتحقق من ملفات التأثير؛ ليست بديلًا عن الإكستنشن ولا عن محرّك المعاينة. |
+| `lempo-runtime/` | مصدر TypeScript مشترك: تحميل/تحقق التأثير، محرك المحاكاة النقي `src/engine.ts`، وحسابات trails النقية `src/trails.ts`. لا يعتمد المحرك على Three.js أو PixiJS؛ الإكستنشن داخل GDevelop ما زال تنفيذًا منفصلًا إلى أن تكتمل مطابقة Phase 1. |
 | `contracts/` | تعريف مشترك لشكل سجل الجسيمات والأشكال ونسخة التصدير وقيم easing وblend modes؛ الملفات داخل `contracts/gen/` مولّدة. |
 
 ### مسار رسم الـviewport الحالي
@@ -91,7 +92,7 @@ Lempo-FX/
 - `contracts/contracts.json` يحدد صيغة التصدير `1.2`، وحقول سجل الجسيمات (22 حقلًا)، وترتيب الأشكال الاثني عشر، ونافذة morph من `0.25` إلى `0.75`.
 - يستخدم `package.json` الآن `three 0.185.1` لمعاينة المتصفح لمطابقة GDevelop 5.6.284، مع `pixi.js ^8.21.0` وTypeScript وesbuild. نسخة Pixi للمعاينة ما زالت مختلفة عن GDevelop (7.4.2) لحين قرار توافق مستقل.
 - الحد الأدنى المدعوم من الإكستنشن هو GDevelop 5.6.284؛ إصدار GDJS هذا يستخدم Three.js runtime `0.185.1` وPixiJS `7.4.2`. نتيجة الفحص والمصادر الرسمية مسجلة في `docs/viewport-migration-notes.md`.
-- `lempo-runtime/` (إصدار الحزمة `1.0.0`) محمّل/مطبّع typed وليس محرك محاكاة. التنفيذ الفعلي للمحاكاة موجود في أكواد الإكستنشن؛ المحمّل لا يحتفظ حاليًا بكل حقول runtime مثل seed وfields وtrails، والتفاصيل في ملاحظات الترحيل.
+- `lempo-runtime/` (إصدار الحزمة `1.0.0`) يحتوي الآن محمّلًا typed ومحرك محاكاة TypeScript مشتركًا للمعاينة، مع رياضيات trails. المحاكاة داخل `AdvancedParticleEmitter.json` ما زالت منفصلة؛ مطابقتها ومشاركة التنفيذ معها ما زالت ضمن أعمال Phase 1 اللاحقة. المحمّل نفسه لا يحفظ حاليًا كل حقول runtime مثل seed وfields وtrails.
 
 ## 4) البناء والتشغيل
 

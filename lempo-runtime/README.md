@@ -1,11 +1,13 @@
 # `@lempo/particle-runtime`
 
-Typed TypeScript ingestion path for Lempo particle effect JSON (v1.0) —
-built for **GDevelop** (GDJS runtime is TypeScript: PixiJS 2D /
-Three.js 3D, JSON-based particle resources since engine `1.0.3`).
+Typed TypeScript loader and renderer-agnostic particle engine for Lempo effect
+JSON, shared with the editor's browser preview. GDevelop's extension still has
+its own runtime implementation; engine parity work is tracked in the viewport
+migration plan.
 
-Strict `tsc` types + validation at the JSON boundary, so one bad field can
-never poison the sim with `NaN`, and engine code never sees `any`.
+Strict `tsc` types + validation at the JSON boundary, plus a pure simulation
+engine (`src/engine.ts`) and trails math (`src/trails.ts`). The engine imports
+neither Three.js nor PixiJS; renderer adapters consume its particle state.
 
 ## Use from a GDevelop GDJS TypeScript extension
 

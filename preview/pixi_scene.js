@@ -268,6 +268,11 @@ export class PixiScene {
     sync(ex, ey) {
         if (!this.ready)
             return;
+        // Lazily preload any custom-shape image textures not yet loaded (covers
+        // the boot race where pixi.init() finishes after the first applyEffect).
+        const pending = this.engine.customImageRefs?.().filter((r) => !this.customTex.has(r));
+        if (pending.length)
+            this.preloadCustomRefs(pending);
         const W = Math.max(1, Math.round(this.canvas.clientWidth || 1));
         const H = Math.max(1, Math.round(this.canvas.clientHeight || 1));
         if (W !== this.lastW || H !== this.lastH) {
@@ -279,13 +284,6 @@ export class PixiScene {
             this.drawGrid(W, H);
         }
         const n = Math.min(this.engine.activeCount, POOL);
-        // Lazily preload any custom-shape image textures not yet loaded (covers
-        // the boot race where pixi.init() finishes after the first applyEffect).
-        const pending = (this.engine.customImageRefs
-            ? this.engine.customImageRefs()
-            : []
-        ).filter((r) => !this.customTex.has(r));
-        if (pending.length) this.preloadCustomRefs(pending);
         const wantBlend = this.pixiBlend(this.engine.blendingMode());
         if (wantBlend !== this.blend) {
             this.blend = wantBlend;

@@ -28,6 +28,27 @@ export {
   MAX_PARTICLES,
   normalizeEffect,
 } from "./engine-adapter.js";
+
+export { MAX_POOL, ParticleEngine } from "./engine.js";
+export type { Vec2 } from "./engine.js";
+export {
+  TRAIL_JUMP,
+  TrailStore,
+  bakeCurve,
+  bakeGradient,
+  coreColor,
+  evalKeys,
+  flickerFactor,
+  flooredWidth,
+  lutColor,
+  normTrailCfg,
+  outerColor,
+  parseHex6,
+  pyRound,
+  strideIndices,
+  widthAt,
+} from "./trails.js";
+export type { TrailCfg, TrailKey, TrailPt } from "./trails.js";
 export type {
   NormalizedKeyframe,
   NormalizedEmitter,

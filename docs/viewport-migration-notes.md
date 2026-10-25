@@ -50,11 +50,32 @@ of `lempo-runtime` explicitly.
 | Blend modes | Browser preview uses the editor package versions (`pixi.js` and `three` in root `package.json`). Pixi maps Subtractive to `erase`, Screen/Overlay to Pixi modes, Lighten to Normal; Three implements custom Screen and Lighten, while unsupported Overlay falls back to Normal. | Extension maps modes against GDevelop's bundled renderer constants; missing Pixi/Three constants and unsupported Overlay fall back to Normal with one warning. GDevelop currently uses different Pixi/Three versions than the browser preview. `lempo-runtime` only preserves the blending-mode string. |
 | Additional runtime behavior | Preview engine is a reduced simulator: it does not consume all exported runtime tracks/features (for example flow interval/mode, alignment/rotation, and orbit tracks are not part of its `EmitterCfg`/`Keyframe`). | The extension has its own richer per-particle state and track sampling. `lempo-runtime` validation/normalization also omits runtime fields such as seed, fields, trails, flow interval, and orbit/rotation data; it is not yet a lossless runtime contract. |
 
-**Conclusion:** do not import `lempo-runtime` as if it were the game particle
-engine. Phase 1 needs a renderer-agnostic simulation module and explicit
-parity work against both the browser preview and the extension. The existing
-typed loader needs a contract decision for runtime-only fields before it can
-serve as that source of truth.
+**Conclusion before Phase 1:** `lempo-runtime` was only a typed loader, not the
+game particle engine. Phase 1 now adds a renderer-agnostic simulation module
+there and makes the browser preview re-export it. The GDevelop extension still
+has a separate simulation implementation; explicit parity and contract work
+against that implementation remains outstanding.
+
+## Phase 1 — tasks 1–2: shared engine extraction
+
+- Added `lempo-runtime/src/engine.ts` as the TypeScript source for preview
+  simulation (particle pool, seeded PRNG, emission, fields, morph/state sampling,
+  and particle/trail state). It has no Three.js, PixiJS, or Canvas dependency.
+- Moved pure trail configuration, sampling, LUT, and history logic to
+  `lempo-runtime/src/trails.ts`; `lempo-runtime/src/index.ts` exports both
+  modules as part of the shared runtime API.
+- Replaced the duplicate implementations in `preview/preview.ts` and
+  `preview/trails.ts` with compatibility re-exports. Canvas fallback drawing
+  now lives in `preview/canvas_renderer.ts`; Three.js and PixiJS adapters keep
+  using the same `ParticleEngine` API.
+- Added a frame-by-frame seeded regression fixture captured from the pre-move
+  implementation. The new engine matches every particle/sample/trail snapshot
+  over 120 frames for both 2D fields and 3D trails/fields scenarios.
+- Verification: preview bundle build and all 14 existing preview/runtime Node
+  tests passed; both 120-frame seeded parity cases passed; TypeScript checks
+  passed for `preview/` and `lempo-runtime/`. Set `skipLibCheck` in the preview
+  config so TypeScript checks the project while skipping slow dependency `.d.ts`
+  validation; the strict project source check completes successfully.
 
 ### 3. GDevelop renderer versions
 

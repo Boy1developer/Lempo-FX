@@ -5,6 +5,7 @@
  * - Live poll keeps syncing last_effect.json when the network allows it
  */
 import { ParticleEngine } from "./preview.js";
+import { CanvasPreviewRenderer } from "./canvas_renderer.js";
 import { ThreeScene } from "./three_scene.js";
 import { PixiScene } from "./pixi_scene.js";
 
@@ -17,6 +18,7 @@ const gl = document.getElementById("gl") as HTMLCanvasElement;
 const px = document.getElementById("px") as HTMLCanvasElement;
 const ctx = cv.getContext("2d") as CanvasRenderingContext2D;
 const engine = new ParticleEngine();
+const canvasRenderer = new CanvasPreviewRenderer(engine);
 let three: ThreeScene | null = null;
 try {
   three = new ThreeScene(gl, engine);
@@ -192,11 +194,11 @@ function frame(now: number): void {
       } catch (e) {
         three = null; // WebGL context lost mid-session → fall back below
         showOnly(cv);
-        engine.renderScene(ctx, W, H);
+        canvasRenderer.renderScene(ctx, W, H);
       }
     } else {
       showOnly(cv);
-      engine.renderScene(ctx, W, H);
+      canvasRenderer.renderScene(ctx, W, H);
     }
     (document.getElementById("pCount") as HTMLElement).textContent = String(engine.activeCount);
     (document.getElementById("hint") as HTMLElement).textContent = three
@@ -219,7 +221,7 @@ function frame(now: number): void {
         cx = W / 2; cy = H * 0.52;
         const ex: number = mx >= 0 ? mx : cx, ey: number = my >= 0 ? my : cy;
         engine.update(dt, ex, ey);
-        engine.render(ctx);
+        canvasRenderer.render(ctx);
         ctx.fillStyle = "#ff3b3b";
         ctx.fillRect(ex, ey - 2, 95, 4);
         ctx.fillStyle = "#2f6bff";

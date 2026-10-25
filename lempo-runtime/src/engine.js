@@ -1,0 +1,641 @@
+/**
+ * Renderer-agnostic particle simulation shared by the editor preview.
+ * - Preallocated SoA particle pool (zero per-frame allocation)
+ * - 2D/3D emission, simulation, state sampling, and morphing
+ * - Keyframe morph across ALL states (size/color/opacity/speed lerp + discrete shape)
+ * - Consumes GDParticleFX studio export format v1.0 (type "2d" / "3d")
+ */
+import { TrailStore, bakeCurve, bakeGradient, normTrailCfg } from "./trails.js";
+export const MAX_POOL = 4000;
+function hexToRgb(hex) {
+    let h = (hex || "#ffffff").replace("#", "");
+    if (h.length === 3)
+        h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16);
+    if (!isFinite(n))
+        return { r: 255, g: 255, b: 255 };
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function easeFn(t, name) {
+    t = Math.max(0, Math.min(1, t));
+    if (name === "ease-in")
+        return t * t;
+    if (name === "ease-out")
+        return t * (2 - t);
+    if (name === "ease-in-out")
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    return t;
+}
+function normMode(m) {
+    const key = String(m ?? "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+    if (key === "burst")
+        return "burst";
+    if (key === "oneshot" || key === "oneoff" || key === "finite" || key === "reservoir")
+        return "reservoir";
+    return "infinite";
+}
+function normZone(s) {
+    return String(s ?? "circle").trim().toLowerCase();
+}
+function num(v, fb) {
+    const n = Number(v ?? fb);
+    return isFinite(n) ? n : fb;
+}
+/** Normalize the optional format-1.1 force-field block (absent = all off). */
+function normFields(f) {
+    const d = (f !== null && typeof f === "object" ? f : {});
+    const sub = (k) => {
+        const v = d[k];
+        return (v !== null && typeof v === "object" ? v : {});
+    };
+    const tb = sub("turbulence"), vx = sub("vortex"), at = sub("attractor"), cl = sub("collision");
+    const planeRaw = cl.planeY;
+    const hasPlane = planeRaw !== null && planeRaw !== undefined &&
+        isFinite(Number(planeRaw));
+    const out = {
+        turbAmount: num(tb.amount, 0),
+        turbScale: num(tb.scale, 0.05),
+        turbSpeed: num(tb.speed, 1.0),
+        vortexStrength: num(vx.strength, 0),
+        attrX: num(at.x, 0),
+        attrY: num(at.y, 0),
+        attrZ: num(at.z, 0),
+        attrStrength: num(at.strength, 0),
+        attrRadius: num(at.radius, 200),
+        hasPlane,
+        planeY: hasPlane ? Number(planeRaw) : 0,
+        planeBounce: num(cl.bounce, 0.5),
+        planeFriction: num(cl.friction, 0.1),
+        active: false,
+    };
+    out.active = out.turbAmount !== 0 || out.vortexStrength !== 0 ||
+        out.attrStrength !== 0 || out.hasPlane;
+    return out;
+}
+export class ParticleEngine {
+    constructor() {
+        // SoA pool — allocated once
+        this.px = new Float32Array(MAX_POOL);
+        this.py = new Float32Array(MAX_POOL);
+        this.pz = new Float32Array(MAX_POOL);
+        this.vx = new Float32Array(MAX_POOL);
+        this.vy = new Float32Array(MAX_POOL);
+        this.vz = new Float32Array(MAX_POOL);
+        this.dx = new Float32Array(MAX_POOL);
+        this.dy = new Float32Array(MAX_POOL);
+        this.dz = new Float32Array(MAX_POOL);
+        this.gx = new Float32Array(MAX_POOL);
+        this.gy = new Float32Array(MAX_POOL);
+        this.gz = new Float32Array(MAX_POOL);
+        this.age = new Float32Array(MAX_POOL);
+        this.life = new Float32Array(MAX_POOL);
+        this.sizeRatio = new Float32Array(MAX_POOL);
+        this.spdRatio = new Float32Array(MAX_POOL);
+        this.count = 0;
+        // Deterministic RNG (mulberry32): nonzero emitter.seed replays identically.
+        this.randState = 0;
+        this.cam = { yaw: 0.7, pitch: 0.42, zoom: 1.0, auto: true };
+        this.is3D = false;
+        this.kf = [];
+        this.kfLife = 1.0;
+        this.effectRev = 0;
+        this.modelBlobs = {};
+        this.accum = 0;
+        this.bursted = false;
+        this.remaining = 0;
+        // trails/ribbons (optional block; null = legacy dots-only look)
+        this.trail = null;
+    }
+    rnd() {
+        if (!this.randState)
+            return Math.random();
+        let x = (this.randState |= 0);
+        x = (x + 0x6d2b79f5) | 0;
+        this.randState = x;
+        let t = Math.imul(x ^ (x >>> 15), 1 | x);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    /** Bumped on every loadEffect — render layers rebuild guides on change. */
+    get effectVersion() { return this.effectRev; }
+    /** Emitter blend mode for the render layers (same fallbacks as the game runtime). */
+    blendingMode() { return this.emitter.blending; }
+    /** Copy of the normalized emission-zone config (for guide rendering). */
+    zoneInfo() {
+        return { ...this.emitter.zone };
+    }
+    /** Copy of the normalized propagation-cone config (for guide rendering). */
+    coneInfo() {
+        return { ...this.emitter.cone };
+    }
+    get activeCount() { return this.count; }
+    /** Ribbons render when the block is enabled (both 2D and 3D). */
+    trailsActive() { return this.trail !== null; }
+    /** Dots hidden in trail mode when the block says so (default true). */
+    trailsHideDots() {
+        return this.trail !== null && this.trail.cfg.hideParticle;
+    }
+    /** Live ribbon frame for the render layers (null when inactive). */
+    trailFrame() {
+        if (!this.trail)
+            return null;
+        return {
+            cfg: this.trail.cfg, wlut: this.trail.wlut, grad: this.trail.grad,
+            now: this.trail.store.time, trails: this.trail.store.histories(),
+        };
+    }
+    /** Read-only particle state for external renderers (e.g. the Three.js layer). */
+    particleState(i) {
+        return { x: this.px[i], y: this.py[i], z: this.pz[i], age: this.age[i] };
+    }
+    loadEffect(eff) {
+        const raw = eff.emitter || {};
+        const z = raw.emissionZone || {};
+        const pc = raw.propagationCone || {};
+        this.is3D = String(eff.type ?? "2d").toLowerCase() === "3d";
+        this.emitter = {
+            flow: Number(raw.flow ?? 40),
+            maxParticles: Math.min(MAX_POOL, Number(raw.maxParticles ?? 300)),
+            reservoir: Number(raw.reservoir ?? 50),
+            mode: normMode(raw.mode),
+            reverse: Boolean(raw.reverse),
+            blending: String(raw.blendingMode ?? "Normal"),
+            seed: Math.floor(Number(raw.seed ?? 0)),
+            gravity: { x: Number(raw.gravity?.x ?? 0), y: Number(raw.gravity?.y ?? 0), z: Number(raw.gravity?.z ?? 0) },
+            zone: {
+                shape: normZone(z.shape),
+                radius: Number(z.radius ?? 10),
+                width: Number(z.width ?? 100),
+                height: Number(z.height ?? 60),
+                length: Number(z.length ?? 100),
+                depth: Number(z.depth ?? 60),
+                rot: Number(z.rotation ?? z.rotationZ ?? 0),
+                mode: String(z.mode ?? "Surface").toLowerCase(),
+            },
+            cone: {
+                direction: Number(pc.direction ?? pc.directionZ ?? 0),
+                directionY: Number(pc.directionY ?? 0),
+                spread: Number(pc.spread ?? 90),
+            },
+            fields: normFields(raw.fields),
+        };
+        this.randState = this.emitter.seed | 0;
+        const states = Array.isArray(eff.states) ? eff.states : [];
+        let prevShape = this.is3D ? "sphere" : "circle";
+        this.kf = states.map((s) => {
+            const ap = s.appearance || {}, mv = s.movement || {};
+            let shp = String(s.shape ?? "").toLowerCase() || prevShape;
+            prevShape = shp;
+            return {
+                dur: Math.max(1e-6, Number(s.duration ?? 0.5)),
+                shape: shp,
+                size: Number(ap.size ?? 8),
+                sizeMax: Number(ap.sizeMax ?? ap.size ?? 8),
+                color: hexToRgb(String(ap.color ?? "#ffffff")),
+                opacity: Number(ap.opacity ?? 255),
+                minSpd: Number(mv.minSpeed ?? 0),
+                maxSpd: Number(mv.maxSpeed ?? mv.minSpeed ?? 0),
+                easing: String(s.easing ?? "linear"),
+                modelRef: String(s.modelRefs?.[0] ?? ""),
+                customShapeRefs: Array.isArray(s.customShapeRefs) ? s.customShapeRefs.slice() : [],
+            };
+        });
+        // Embedded GLB/GLTF blobs for custom-model states. Replace (never merge
+        // implicitly): the key is present only when the model set changed, and
+        // an empty object clears previously cached blobs. Absent key keeps cache
+        // so the 500ms live poll (which omits blobs when unchanged) never wipes.
+        const md = eff.modelsData;
+        if (md !== undefined && md !== null && typeof md === "object") {
+            const next = {};
+            for (const k of Object.keys(md)) {
+                const v = md[k];
+                if (v && typeof v.data === "string" && v.data.length > 0)
+                    next[k] = { mime: String(v.mime ?? ""), data: v.data };
+            }
+            this.modelBlobs = next;
+        }
+        // life excludes the death duration (extension semantics)
+        this.kfLife = Math.max(0.1, this.kf.slice(0, -1).reduce((a, k) => a + k.dur, 0));
+        this.count = 0;
+        this.accum = 0;
+        this.bursted = false;
+        this.remaining = this.emitter.reservoir;
+        // trails block: parse + bake once per effect (curves never change live)
+        const tc = normTrailCfg(raw.trails);
+        if (tc) {
+            this.trail = {
+                cfg: tc,
+                wlut: bakeCurve(tc.widthCurve, 64),
+                grad: bakeGradient(tc.colorStops, tc.alphaStops, 256),
+                store: new TrailStore(),
+            };
+        }
+        else {
+            this.trail = null;
+        }
+        this.effectRev++;
+    }
+    /** Locate interval k + eased local t + raw t (shape switches at raw>=0.5). */
+    locate(age) {
+        const n = Math.max(1, this.kf.length - 1);
+        const t = Math.max(0, Math.min(age, this.kfLife));
+        let acc = 0;
+        for (let k = 0; k < n; k++) {
+            const d = this.kf[k].dur;
+            if (t < acc + d || k === n - 1) {
+                const raw = d <= 0 ? 0 : Math.max(0, Math.min(1, (t - acc) / d));
+                return [k, easeFn(raw, this.kf[k].easing), raw];
+            }
+            acc += d;
+        }
+        return [n - 1, 1, 1];
+    }
+    sampleSpeed(age, i) {
+        const [k, e] = this.locate(age);
+        const a = this.kf[k], b = this.kf[Math.min(k + 1, this.kf.length - 1)];
+        const mn = a.minSpd + (b.minSpd - a.minSpd) * e;
+        const mx = a.maxSpd + (b.maxSpd - a.maxSpd) * e;
+        return mn + (mx - mn) * this.spdRatio[i];
+    }
+    coneDir3() {
+        const az = this.emitter.cone.direction * Math.PI / 180;
+        const el = this.emitter.cone.directionY * Math.PI / 180;
+        const bx = Math.cos(el) * Math.cos(az);
+        const by = Math.sin(el);
+        const bz = Math.cos(el) * Math.sin(az);
+        const half = (this.emitter.cone.spread / 2) * Math.PI / 180;
+        const th = this.rnd() * Math.PI * 2;
+        const r = Math.tan(half) * Math.sqrt(this.rnd());
+        let ux = 0, uy = 1, uz = 0;
+        if (Math.abs(by) > 0.95) {
+            ux = 1;
+            uy = 0;
+        }
+        let cx1 = by * uz - bz * uy, cy1 = bz * ux - bx * uz, cz1 = bx * uy - by * ux;
+        const n1 = Math.hypot(cx1, cy1, cz1) || 1;
+        ux = cx1 / n1;
+        uy = cy1 / n1;
+        uz = cz1 / n1;
+        const vx2 = by * uz - bz * uy, vy2 = bz * ux - bx * uz, vz2 = bx * uy - by * ux;
+        const ca = Math.cos(th) * r, sa = Math.sin(th) * r;
+        const dx = bx + ux * ca + vx2 * sa;
+        const dy = by + uy * ca + vy2 * sa;
+        const dz = bz + uz * ca + vz2 * sa;
+        const n = Math.hypot(dx, dy, dz) || 1;
+        return [dx / n, dy / n, dz / n];
+    }
+    spawnAt(cx, cy) {
+        if (this.count >= Math.min(this.emitter.maxParticles, MAX_POOL))
+            return;
+        if (!this.kf.length)
+            return;
+        const e = this.emitter;
+        const i = this.count++;
+        const jitter = 0.9 + this.rnd() * 0.2;
+        this.life[i] = this.kfLife * jitter;
+        this.sizeRatio[i] = this.rnd();
+        this.spdRatio[i] = this.rnd();
+        this.gx[i] = 0;
+        this.gy[i] = 0;
+        this.gz[i] = 0;
+        const spd = this.sampleSpeed(0, i);
+        if (this.is3D) {
+            const z = e.zone;
+            const rot = z.rot * Math.PI / 180;
+            const cr = Math.cos(rot), sr = Math.sin(rot);
+            let sx = 0, sy = 0, sz = 0;
+            if (z.shape === "sphere" || z.shape === "circle") {
+                const th = this.rnd() * Math.PI * 2;
+                const ph = Math.acos(2 * this.rnd() - 1);
+                const rr = z.radius * Math.cbrt(this.rnd());
+                sx = rr * Math.sin(ph) * Math.cos(th);
+                sy = rr * Math.cos(ph);
+                sz = rr * Math.sin(ph) * Math.sin(th);
+            }
+            else if (z.shape === "box" || z.shape === "rectangle") {
+                sx = (this.rnd() - 0.5) * z.width;
+                sy = (this.rnd() - 0.5) * z.height;
+                sz = (this.rnd() - 0.5) * z.depth;
+                const rx = sx * cr - sy * sr, ry = sx * sr + sy * cr;
+                sx = rx;
+                sy = ry;
+            }
+            else if (z.shape === "line") {
+                sx = (this.rnd() - 0.5) * z.length;
+                const rx = sx * cr;
+                sy = sx * sr;
+                sx = rx;
+            }
+            const [dx, dy, dz] = this.coneDir3();
+            this.dx[i] = e.reverse ? -dx : dx;
+            this.dy[i] = e.reverse ? -dy : dy;
+            this.dz[i] = e.reverse ? -dz : dz;
+            if (e.reverse) {
+                const dist = spd * this.life[i];
+                this.px[i] = sx + dx * dist;
+                this.py[i] = sy + dy * dist;
+                this.pz[i] = sz + dz * dist;
+            }
+            else {
+                this.px[i] = sx;
+                this.py[i] = sy;
+                this.pz[i] = sz;
+            }
+            this.vx[i] = this.dx[i] * spd;
+            this.vy[i] = this.dy[i] * spd;
+            this.vz[i] = this.dz[i] * spd;
+        }
+        else {
+            const half = e.cone.spread / 2;
+            const ang = (e.cone.direction + (this.rnd() * 2 - 1) * half) * Math.PI / 180;
+            let dx = Math.cos(ang), dy = Math.sin(ang);
+            const z = e.zone;
+            const rot = (z.rot || 0) * Math.PI / 180;
+            const cr = Math.cos(rot), sr = Math.sin(rot);
+            let lx = 0, ly = 0;
+            if (z.shape === "circle" || z.shape === "sphere") {
+                const a = this.rnd() * Math.PI * 2;
+                if (z.mode === "edge") {
+                    lx = Math.cos(a) * z.radius;
+                    ly = Math.sin(a) * z.radius;
+                }
+                else {
+                    const r = Math.sqrt(this.rnd()) * z.radius;
+                    lx = Math.cos(a) * r;
+                    ly = Math.sin(a) * r;
+                }
+            }
+            else if (z.shape === "rectangle" || z.shape === "box") {
+                if (z.mode === "edge") {
+                    const per = 2 * (z.width + z.height), d = this.rnd() * per;
+                    if (d < z.width) {
+                        lx = d - z.width / 2;
+                        ly = -z.height / 2;
+                    }
+                    else if (d < z.width + z.height) {
+                        lx = z.width / 2;
+                        ly = (d - z.width) - z.height / 2;
+                    }
+                    else if (d < 2 * z.width + z.height) {
+                        lx = z.width / 2 - (d - z.width - z.height);
+                        ly = z.height / 2;
+                    }
+                    else {
+                        lx = -z.width / 2;
+                        ly = z.height / 2 - (d - 2 * z.width - z.height);
+                    }
+                }
+                else {
+                    lx = (this.rnd() - 0.5) * z.width;
+                    ly = (this.rnd() - 0.5) * z.height;
+                }
+            }
+            else if (z.shape === "line") {
+                lx = (this.rnd() - 0.5) * z.length;
+            }
+            const ox = lx * cr - ly * sr, oy = lx * sr + ly * cr;
+            if (e.reverse) {
+                dx = -dx;
+                dy = -dy;
+            }
+            this.dx[i] = dx;
+            this.dy[i] = dy;
+            this.dz[i] = 0;
+            if (e.reverse) {
+                const dist = spd * this.life[i];
+                this.px[i] = cx + ox + dx * dist;
+                this.py[i] = cy + oy + dy * dist;
+            }
+            else {
+                this.px[i] = cx + ox;
+                this.py[i] = cy + oy;
+            }
+            this.pz[i] = 0;
+            this.vx[i] = dx * spd;
+            this.vy[i] = dy * spd;
+            this.vz[i] = 0;
+        }
+        this.age[i] = 0;
+    }
+    kill(i) {
+        const l = --this.count;
+        if (i !== l) {
+            this.px[i] = this.px[l];
+            this.py[i] = this.py[l];
+            this.pz[i] = this.pz[l];
+            this.vx[i] = this.vx[l];
+            this.vy[i] = this.vy[l];
+            this.vz[i] = this.vz[l];
+            this.dx[i] = this.dx[l];
+            this.dy[i] = this.dy[l];
+            this.dz[i] = this.dz[l];
+            this.gx[i] = this.gx[l];
+            this.gy[i] = this.gy[l];
+            this.gz[i] = this.gz[l];
+            this.age[i] = this.age[l];
+            this.life[i] = this.life[l];
+            this.sizeRatio[i] = this.sizeRatio[l];
+            this.spdRatio[i] = this.spdRatio[l];
+        }
+    }
+    update(dt, cx, cy) {
+        const e = this.emitter;
+        if (e.mode === "burst") {
+            if (!this.bursted) {
+                this.bursted = true;
+                const n = Math.min(e.reservoir, e.maxParticles, MAX_POOL);
+                for (let k = 0; k < n; k++)
+                    this.spawnAt(cx, cy);
+            }
+        }
+        else if (e.mode === "reservoir") {
+            if (!this.bursted) {
+                this.accum += e.flow * dt;
+                while (this.accum >= 1 && this.remaining > 0) {
+                    this.accum -= 1;
+                    this.spawnAt(cx, cy);
+                    this.remaining--;
+                }
+                if (this.remaining <= 0)
+                    this.bursted = true;
+            }
+        }
+        else {
+            this.accum += e.flow * dt;
+            while (this.accum >= 1) {
+                this.accum -= 1;
+                this.spawnAt(cx, cy);
+            }
+        }
+        const gravScale = this.is3D ? 1.0 : 0.4;
+        const gx = e.gravity.x * dt * gravScale;
+        const gy = e.gravity.y * dt * gravScale;
+        const gz = e.gravity.z * dt * gravScale;
+        for (let i = this.count - 1; i >= 0; i--) {
+            this.age[i] += dt;
+            if (this.age[i] >= this.life[i]) {
+                this.kill(i);
+                continue;
+            }
+            this.gx[i] += gx;
+            this.gy[i] += gy;
+            this.gz[i] += gz;
+            const fl = e.fields;
+            if (fl.active) {
+                const fa = this.fieldAccel(this.px[i], this.py[i], this.pz[i], this.age[i], cx, cy);
+                this.gx[i] += fa[0] * dt;
+                this.gy[i] += fa[1] * dt;
+                this.gz[i] += fa[2] * dt;
+            }
+            const spd = this.sampleSpeed(this.age[i], i);
+            this.vx[i] = this.dx[i] * spd + this.gx[i];
+            this.vy[i] = this.dy[i] * spd + this.gy[i];
+            this.vz[i] = this.dz[i] * spd + this.gz[i];
+            this.px[i] += this.vx[i] * dt;
+            this.py[i] += this.vy[i] * dt;
+            this.pz[i] += this.vz[i] * dt;
+            if (fl.hasPlane && this.py[i] < fl.planeY) {
+                this.py[i] = fl.planeY;
+                this.vx[i] *= (1 - fl.planeFriction);
+                this.vy[i] = -this.vy[i] * fl.planeBounce;
+                this.vz[i] *= (1 - fl.planeFriction);
+            }
+        }
+        // trail histories: slot-index keys (swap-remove reuse is absorbed by
+        // the teleport cut, like the desktop C++ path)
+        if (this.trail) {
+            const items = [];
+            for (let i = 0; i < this.count; i++)
+                items.push({ key: i, x: this.px[i], y: this.py[i], z: this.pz[i] });
+            if (this.is3D)
+                this.trail.store.update(items, 0, 0, 0, dt, this.trail.cfg);
+            else
+                this.trail.store.update(items, cx, cy, 0, dt, this.trail.cfg);
+        }
+    }
+    /** Force-field acceleration (mirrors particle_studio.field_accel). */
+    fieldAccel(x, y, z, age, ex, ey) {
+        const fl = this.emitter.fields;
+        let ax = 0, ay = 0, az = 0;
+        if (fl.turbAmount !== 0) {
+            ax += fl.turbAmount * Math.sin(y * fl.turbScale + age * fl.turbSpeed);
+            ay += fl.turbAmount * Math.sin(z * fl.turbScale * 1.3 + age * fl.turbSpeed * 1.1);
+            az += fl.turbAmount * Math.sin(x * fl.turbScale * 0.7 + age * fl.turbSpeed * 0.9);
+        }
+        if (fl.vortexStrength !== 0) {
+            if (!this.is3D) {
+                const dx = x - ex, dy = y - ey;
+                const r = Math.hypot(dx, dy);
+                if (r > 1e-6) {
+                    const s = fl.vortexStrength / Math.max(r, 1.0);
+                    ax += -dy * s;
+                    ay += dx * s;
+                }
+            }
+            else {
+                const dx = x - ex, dz = z;
+                const r = Math.hypot(dx, dz);
+                if (r > 1e-6) {
+                    const s = fl.vortexStrength / Math.max(r, 1.0);
+                    ax += -dz * s;
+                    az += dx * s;
+                }
+            }
+        }
+        if (fl.attrStrength !== 0 && fl.attrRadius > 0) {
+            const dx = x - fl.attrX, dy = y - fl.attrY, dz = z - fl.attrZ;
+            const r = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (r < fl.attrRadius && r > 1e-6) {
+                const k = fl.attrStrength * (1 - r / fl.attrRadius) / r;
+                ax -= dx * k;
+                ay -= dy * k;
+                az -= dz * k;
+            }
+        }
+        return [ax, ay, az];
+    }
+    /** Model ref sampled like shape (mid-segment flip), "" when none. */
+    modelRefAt(age) {
+        if (!this.kf.length)
+            return "";
+        const [k, , raw] = this.locate(age);
+        const a = this.kf[k], b = this.kf[Math.min(k + 1, this.kf.length - 1)];
+        return raw >= 0.5 ? b.modelRef : a.modelRef;
+    }
+    /** Shape cross-fade companion during the flip window, else null.
+     * Mirrors the desktop/C++ window: raw segment time in (0.25, 0.75). */
+    morphAt(age) {
+        if (this.kf.length < 2)
+            return null;
+        const [k, , raw] = this.locate(age);
+        if (!(raw > 0.25 && raw < 0.75) || k < 0 || k + 1 >= this.kf.length)
+            return null;
+        const a = this.kf[k], b = this.kf[k + 1];
+        return {
+            aShape: a.shape, bShape: b.shape, aRef: a.modelRef, bRef: b.modelRef,
+            t: (raw - 0.25) / 0.5,
+        };
+    }
+    /** Distinct non-empty model refs across keyframes. */
+    customRefs() {
+        const out = [];
+        for (const k of this.kf)
+            if (k.modelRef && out.indexOf(k.modelRef) < 0)
+                out.push(k.modelRef);
+        return out;
+    }
+    /** Custom-shape image ref (filename / URL) active at a given age. */
+    customRefAt(age) {
+        if (!this.kf.length)
+            return "";
+        const [k, , raw] = this.locate(age);
+        const a = this.kf[k], b = this.kf[Math.min(k + 1, this.kf.length - 1)];
+        const refs = raw >= 0.5 ? (b.customShapeRefs || []) : (a.customShapeRefs || []);
+        return refs.length ? String(refs[0]) : "";
+    }
+    /** Distinct non-empty custom-shape image refs across keyframes (for preload). */
+    customImageRefs() {
+        const out = [];
+        const seen = new Set();
+        for (const k of this.kf) {
+            for (const ref of (k.customShapeRefs || [])) {
+                if (ref && !seen.has(ref)) {
+                    seen.add(ref);
+                    out.push(ref);
+                }
+            }
+        }
+        return out;
+    }
+    /** Embedded blob for a ref, if the studio shipped one. */
+    modelBlob(ref) {
+        const b = this.modelBlobs[ref];
+        return b ? { mime: b.mime, data: b.data } : null;
+    }
+    /** Sampled appearance at age (morph across keyframes; shape flips mid-segment). */
+    sampleAt(age, i) {
+        const [k, e, raw] = this.locate(age);
+        const a = this.kf[k], b = this.kf[Math.min(k + 1, this.kf.length - 1)];
+        const sMin = a.size + (b.size - a.size) * e;
+        const sMax = a.sizeMax + (b.sizeMax - a.sizeMax) * e;
+        return {
+            size: Math.max(0.5, (sMin + (sMax - sMin) * this.sizeRatio[i]) * 0.5),
+            r: Math.round(a.color.r + (b.color.r - a.color.r) * e),
+            g: Math.round(a.color.g + (b.color.g - a.color.g) * e),
+            b: Math.round(a.color.b + (b.color.b - a.color.b) * e),
+            a: Math.max(0, Math.min(1, (a.opacity + (b.opacity - a.opacity) * e) / 255)),
+            shape: raw >= 0.5 ? b.shape : a.shape,
+        };
+    }
+    /** Project a point through the preview orbit camera (pure math; no renderer API). */
+    project(x, y, z, cx, cy, focal) {
+        const sy = Math.sin(this.cam.yaw), cy2 = Math.cos(this.cam.yaw);
+        const sp = Math.sin(this.cam.pitch), cp = Math.cos(this.cam.pitch);
+        const x1 = x * cy2 + z * sy;
+        const z1 = -x * sy + z * cy2;
+        const y2 = y * cp - z1 * sp;
+        const z2 = y * sp + z1 * cp;
+        const scale = this.cam.zoom * focal / (focal + z2);
+        return [cx + x1 * scale, cy - y2 * scale, scale, z2];
+    }
+}
