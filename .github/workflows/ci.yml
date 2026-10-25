@@ -78,6 +78,7 @@ jobs:
         run: |
           node preview/test_engine.mjs
           node preview/test_engine_parity.mjs
+          node preview/test_frame_buffers.mjs
           node preview/test_engine3d.mjs
           node preview/test_guides.mjs
           node preview/test_models.mjs

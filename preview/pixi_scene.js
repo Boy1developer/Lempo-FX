@@ -6,6 +6,7 @@
  *   preview, GPU-batched
  */
 import * as PIXI from "pixi.js";
+import { SHAPE_ORDER } from "../lempo-runtime/src/index.js";
 import { flooredWidth, lutColor, outerColor, coreColor, flickerFactor, strideIndices, } from "./trails.js";
 const POOL = 4000;
 const TEX = 128; // texture atlas cell (px)
@@ -283,7 +284,8 @@ export class PixiScene {
             this.app.renderer.resize(W, H);
             this.drawGrid(W, H);
         }
-        const n = Math.min(this.engine.activeCount, POOL);
+        const frame = this.engine.writeFrame();
+        const n = Math.min(frame.count, POOL);
         const wantBlend = this.pixiBlend(this.engine.blendingMode());
         if (wantBlend !== this.blend) {
             this.blend = wantBlend;
@@ -298,16 +300,19 @@ export class PixiScene {
                 sp.visible = false;
                 continue;
             }
-            const st = this.engine.particleState(i);
-            if (st.x < -M || st.y < -M || st.x > W + M || st.y > H + M) {
+            const p = i * 3;
+            const x = frame.position[p], y = frame.position[p + 1];
+            const age = frame.age[i];
+            if (x < -M || y < -M || x > W + M || y > H + M) {
                 sp.visible = false;
                 continue;
             }
-            const sm = this.engine.sampleAt(st.age, i);
+            const shape = SHAPE_ORDER[frame.shape[i]];
+            const size = frame.size[i];
             // Custom-shape particles use the imported image texture; fallback to baked shape.
-            let tex = this.tex[this.normShape(sm.shape)];
-            if (sm.shape === "custom") {
-                const ref = this.engine.customRefAt(st.age);
+            let tex = this.tex[this.normShape(shape)];
+            if (shape === "custom") {
+                const ref = this.engine.customRefAt(age);
                 if (ref) {
                     const ct = this.customTextureFor(ref);
                     if (ct)
@@ -315,11 +320,11 @@ export class PixiScene {
                 }
             }
             sp.texture = tex;
-            sp.position.set(st.x, st.y);
-            const s = Math.max(0.5, sm.size / TEX_R);
+            sp.position.set(x, y);
+            const s = Math.max(0.5, size / TEX_R);
             sp.scale.set(s);
-            sp.tint = (sm.r << 16) | (sm.g << 8) | sm.b;
-            sp.alpha = sm.a;
+            sp.tint = (frame.color[p] << 16) | (frame.color[p + 1] << 8) | frame.color[p + 2];
+            sp.alpha = frame.alpha[i];
             sp.visible = true;
         }
         for (let i = n; i < this.prevN; i++)

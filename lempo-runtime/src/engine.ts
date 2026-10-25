@@ -7,8 +7,20 @@
  */
 
 import { TrailCfg, TrailPt, TrailStore, TrailKey, bakeCurve, bakeGradient, flooredWidth, lutColor, outerColor, coreColor, flickerFactor, strideIndices, normTrailCfg } from "./trails.js";
+import { SHAPE_ORDER } from "./lempo-effect.js";
 
 export interface Vec2 { x: number; y: number }
+
+/** Reused renderer handoff. Numeric particle data is packed into typed arrays. */
+export interface ParticleFrameData {
+  count: number;
+  position: Float32Array;
+  age: Float32Array;
+  size: Float32Array;
+  color: Uint8Array;
+  alpha: Float32Array;
+  shape: Uint8Array;
+}
 
 interface RGB { r: number; g: number; b: number }
 
@@ -127,6 +139,15 @@ export class ParticleEngine {
   private life = new Float32Array(MAX_POOL);
   private sizeRatio = new Float32Array(MAX_POOL);
   private spdRatio = new Float32Array(MAX_POOL);
+  private readonly frameData: ParticleFrameData = {
+    count: 0,
+    position: new Float32Array(MAX_POOL * 3),
+    age: new Float32Array(MAX_POOL),
+    size: new Float32Array(MAX_POOL),
+    color: new Uint8Array(MAX_POOL * 3),
+    alpha: new Float32Array(MAX_POOL),
+    shape: new Uint8Array(MAX_POOL),
+  };
   private count = 0;
   // Deterministic RNG (mulberry32): nonzero emitter.seed replays identically.
   private randState = 0;
@@ -177,6 +198,36 @@ export class ParticleEngine {
   } | null = null;
 
   get activeCount(): number { return this.count; }
+
+  /**
+   * Fill and return the same preallocated frame buffers on every call.
+   * Renderers consume these arrays directly instead of allocating one object
+   * per particle. The arrays stay valid until the next call to writeFrame().
+   */
+  writeFrame(): ParticleFrameData {
+    const out = this.frameData;
+    out.count = this.count;
+    for (let i = 0; i < this.count; i++) {
+      const age = this.age[i];
+      const [k, e, raw] = this.locate(age);
+      const a = this.kf[k], b = this.kf[Math.min(k + 1, this.kf.length - 1)];
+      const minSize = a.size + (b.size - a.size) * e;
+      const maxSize = a.sizeMax + (b.sizeMax - a.sizeMax) * e;
+      const size = Math.max(0.5, (minSize + (maxSize - minSize) * this.sizeRatio[i]) * 0.5);
+      const p = i * 3;
+      out.position[p] = this.px[i]; out.position[p + 1] = this.py[i]; out.position[p + 2] = this.pz[i];
+      out.age[i] = age;
+      out.size[i] = size;
+      out.color[p] = Math.round(a.color.r + (b.color.r - a.color.r) * e);
+      out.color[p + 1] = Math.round(a.color.g + (b.color.g - a.color.g) * e);
+      out.color[p + 2] = Math.round(a.color.b + (b.color.b - a.color.b) * e);
+      out.alpha[i] = Math.max(0, Math.min(1, (a.opacity + (b.opacity - a.opacity) * e) / 255));
+      const shape = raw >= 0.5 ? b.shape : a.shape;
+      const code = SHAPE_ORDER.indexOf(shape as (typeof SHAPE_ORDER)[number]);
+      out.shape[i] = code >= 0 ? code : SHAPE_ORDER.indexOf(this.is3D ? "sphere" : "circle");
+    }
+    return out;
+  }
 
   /** Ribbons render when the block is enabled (both 2D and 3D). */
   trailsActive(): boolean { return this.trail !== null; }

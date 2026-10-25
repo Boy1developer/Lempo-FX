@@ -71,11 +71,29 @@ against that implementation remains outstanding.
 - Added a frame-by-frame seeded regression fixture captured from the pre-move
   implementation. The new engine matches every particle/sample/trail snapshot
   over 120 frames for both 2D fields and 3D trails/fields scenarios.
-- Verification: preview bundle build and all 14 existing preview/runtime Node
-  tests passed; both 120-frame seeded parity cases passed; TypeScript checks
+- Added `ParticleEngine.writeFrame()`, a stable reusable set of typed arrays
+  for interleaved positions, ages, sampled size/color/alpha, and shape indices.
+  Three.js, PixiJS, and Canvas read the frame arrays directly; scene adapters
+  no longer allocate a particle-state and appearance object for every dot.
+- Added a frame-by-frame seeded regression fixture captured from the pre-move
+  implementation. The new engine matches every particle/sample/trail snapshot
+  over 120 frames for both 2D fields and 3D trails/fields scenarios.
+- Verification: preview bundle build, all 14 existing preview/runtime Node
+  tests, and the new frame-buffer/parity tests passed; both 120-frame seeded
+  parity cases passed; TypeScript checks
   passed for `preview/` and `lempo-runtime/`. Set `skipLibCheck` in the preview
   config so TypeScript checks the project while skipping slow dependency `.d.ts`
   validation; the strict project source check completes successfully.
+- Added `preview/test_frame_buffers.mjs` for 2D/3D array contents and buffer
+  reuse. Re-running `tools/patch_trails_ext.py` returned `ALREADY-PATCHED`; the
+  SHA-256 of `AdvancedParticleEmitter.json` remained
+  `4C6E00EB63D61DC2DBC9B811B46BBF2A5650CF9F7E003073808D29E6AA69F30D` before
+  and after, confirming the migration did not alter the extension artifact.
+- Full Phase 1 verification passed: all plan-listed Python core/UI/trails/GL
+  suites and preview server, plus the Windows PyInstaller build and 9-second
+  smoke boot. Two pre-existing v1.1 test fixtures/assertions were updated to
+  current export version 1.2; `tests/test_view2d_zoom.py` passed on rerun after
+  one stochastic spawn assertion failed on its first sample.
 
 ### 3. GDevelop renderer versions
 

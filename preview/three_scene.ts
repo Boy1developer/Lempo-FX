@@ -9,6 +9,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { ParticleEngine } from "./preview.js";
+import { SHAPE_ORDER } from "../lempo-runtime/src/index.js";
 import {
   TrailCfg, TrailPt, TrailKey, flooredWidth, lutColor, outerColor,
   coreColor, flickerFactor, strideIndices,
@@ -598,28 +599,28 @@ export class ThreeScene {
   }
 
   /** One morph side (or a whole particle): model pool first, else bucket. */
-  private placeParticle(st: { x: number; y: number; z: number; age: number },
-    sm: { size: number; r: number; g: number; b: number; shape: string },
+  private placeParticle(x: number, y: number, z: number, age: number,
+    size: number, r: number, g: number, b: number,
     shape: string, ref: string, alpha: number, counts: number[]): void {
     const key: string = this.normShape(shape);
-    if (key === "custom" && ref && this.drawModel(ref, st.x, st.y, st.z,
-      Math.max(0.01, sm.size), st.age, sm.r, sm.g, sm.b, alpha)) return;
+    if (key === "custom" && ref && this.drawModel(ref, x, y, z,
+      Math.max(0.01, size), age, r, g, b, alpha)) return;
     const mi: number = this.byShape[key];
     const slot: number = counts[mi]++;
     if (slot >= CAP) return;
-    const s: number = Math.max(0.01, sm.size);
-    this.dummy.position.set(st.x, st.y, st.z);
+    const s: number = Math.max(0.01, size);
+    this.dummy.position.set(x, y, z);
     if (this.flat.has(key)) {
       this.dummy.quaternion.copy(this.camera.quaternion);
     } else {
-      this.dummy.rotation.set(st.age * 0.7, st.age * 0.9, 0);
+      this.dummy.rotation.set(age * 0.7, age * 0.9, 0);
     }
     this.dummy.scale.set(s, s, s);
     this.dummy.updateMatrix();
     this.meshes[mi].setMatrixAt(slot, this.dummy.matrix);
     // additive blending: bake alpha into RGB (matches 2D preview look)
     this.tmpColor.setRGB(
-      (sm.r / 255) * alpha, (sm.g / 255) * alpha, (sm.b / 255) * alpha);
+      (r / 255) * alpha, (g / 255) * alpha, (b / 255) * alpha);
     this.meshes[mi].setColorAt(slot, this.tmpColor);
   }
 
@@ -659,19 +660,25 @@ export class ThreeScene {
     const tf = this.engine.trailFrame();
     const hideDots: boolean = this.engine.trailsHideDots();
     if (!hideDots) {
-      const n: number = this.engine.activeCount;
+      const frame = this.engine.writeFrame();
+      const n: number = frame.count;
       for (let i = 0; i < n; i++) {
-        const st = this.engine.particleState(i);
-        const sm = this.engine.sampleAt(st.age, i);
-        const mp = this.engine.morphAt(st.age);
+        const p = i * 3;
+        const x = frame.position[p], y = frame.position[p + 1], z = frame.position[p + 2];
+        const age = frame.age[i], size = frame.size[i];
+        const r = frame.color[p], g = frame.color[p + 1], b = frame.color[p + 2];
+        const alpha = frame.alpha[i];
+        const shape = SHAPE_ORDER[frame.shape[i]];
+        const mp = this.engine.morphAt(age);
         if (mp && (mp.aShape !== mp.bShape ||
             (mp.aShape === "custom" && mp.aRef !== mp.bRef))) {
-          this.placeParticle(st, sm, mp.aShape, mp.aRef, sm.a * (1 - mp.t),
-            counts);
-          this.placeParticle(st, sm, mp.bShape, mp.bRef, sm.a * mp.t, counts);
+          this.placeParticle(x, y, z, age, size, r, g, b,
+            mp.aShape, mp.aRef, alpha * (1 - mp.t), counts);
+          this.placeParticle(x, y, z, age, size, r, g, b,
+            mp.bShape, mp.bRef, alpha * mp.t, counts);
         } else {
-          this.placeParticle(st, sm, sm.shape,
-            this.engine.modelRefAt(st.age), sm.a, counts);
+          this.placeParticle(x, y, z, age, size, r, g, b, shape,
+            this.engine.modelRefAt(age), alpha, counts);
         }
       }
     }

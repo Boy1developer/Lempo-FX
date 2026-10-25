@@ -1,5 +1,6 @@
 /** Canvas fallback renderer for the fast preview; simulation remains in lempo-runtime. */
 import type { ParticleEngine } from "./preview.js";
+import { SHAPE_ORDER } from "../lempo-runtime/src/index.js";
 import {
   coreColor, flickerFactor, flooredWidth, lutColor, outerColor, strideIndices,
   type TrailCfg, type TrailKey, type TrailPt,
@@ -17,12 +18,13 @@ export class CanvasPreviewRenderer {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     if (!this.engine.trailsHideDots()) {
-      for (let i = 0; i < this.engine.activeCount; i++) {
-        const p = this.engine.particleState(i);
-        const s = this.engine.sampleAt(p.age, i);
-        this.traceShape(ctx, s.shape, p.x, p.y, s.size,
-          `rgba(${s.r},${s.g},${s.b},${s.a.toFixed(3)})`,
-          `rgba(${s.r},${s.g},${s.b},${(s.a * 0.35).toFixed(3)})`);
+      const frame = this.engine.writeFrame();
+      for (let i = 0; i < frame.count; i++) {
+        const p = i * 3;
+        const alpha = frame.alpha[i];
+        this.traceShape(ctx, SHAPE_ORDER[frame.shape[i]], frame.position[p], frame.position[p + 1], frame.size[i],
+          `rgba(${frame.color[p]},${frame.color[p + 1]},${frame.color[p + 2]},${alpha.toFixed(3)})`,
+          `rgba(${frame.color[p]},${frame.color[p + 1]},${frame.color[p + 2]},${(alpha * 0.35).toFixed(3)})`);
       }
     }
     const tf = this.engine.trailFrame();
@@ -66,13 +68,15 @@ export class CanvasPreviewRenderer {
     ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(origin[0], origin[1], 6, 0, 6.2832); ctx.fill();
     ctx.save(); ctx.globalCompositeOperation = "lighter";
     if (!this.engine.trailsHideDots()) {
-      for (let i = 0; i < this.engine.activeCount; i++) {
-        const p = this.engine.particleState(i);
-        const projected = this.project(p.x, p.y, p.z, cx, cy, focal);
-        const s = this.engine.sampleAt(p.age, i);
-        this.traceShape(ctx, s.shape, projected[0], projected[1], Math.max(1, s.size * projected[2]),
-          `rgba(${s.r},${s.g},${s.b},${s.a.toFixed(3)})`,
-          `rgba(${s.r},${s.g},${s.b},${(s.a * 0.35).toFixed(3)})`);
+      const frame = this.engine.writeFrame();
+      for (let i = 0; i < frame.count; i++) {
+        const p = i * 3;
+        const projected = this.project(frame.position[p], frame.position[p + 1], frame.position[p + 2], cx, cy, focal);
+        const alpha = frame.alpha[i];
+        this.traceShape(ctx, SHAPE_ORDER[frame.shape[i]], projected[0], projected[1],
+          Math.max(1, frame.size[i] * projected[2]),
+          `rgba(${frame.color[p]},${frame.color[p + 1]},${frame.color[p + 2]},${alpha.toFixed(3)})`,
+          `rgba(${frame.color[p]},${frame.color[p + 1]},${frame.color[p + 2]},${(alpha * 0.35).toFixed(3)})`);
       }
     }
     const tf = this.engine.trailFrame();

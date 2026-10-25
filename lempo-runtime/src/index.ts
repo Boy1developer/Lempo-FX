@@ -30,7 +30,7 @@ export {
 } from "./engine-adapter.js";
 
 export { MAX_POOL, ParticleEngine } from "./engine.js";
-export type { Vec2 } from "./engine.js";
+export type { ParticleFrameData, Vec2 } from "./engine.js";
 export {
   TRAIL_JUMP,
   TrailStore,

@@ -6,6 +6,7 @@
  * - Consumes GDParticleFX studio export format v1.0 (type "2d" / "3d")
  */
 import { TrailStore, bakeCurve, bakeGradient, normTrailCfg } from "./trails.js";
+import { SHAPE_ORDER } from "./lempo-effect.js";
 export const MAX_POOL = 4000;
 function hexToRgb(hex) {
     let h = (hex || "#ffffff").replace("#", "");
@@ -91,6 +92,15 @@ export class ParticleEngine {
         this.life = new Float32Array(MAX_POOL);
         this.sizeRatio = new Float32Array(MAX_POOL);
         this.spdRatio = new Float32Array(MAX_POOL);
+        this.frameData = {
+            count: 0,
+            position: new Float32Array(MAX_POOL * 3),
+            age: new Float32Array(MAX_POOL),
+            size: new Float32Array(MAX_POOL),
+            color: new Uint8Array(MAX_POOL * 3),
+            alpha: new Float32Array(MAX_POOL),
+            shape: new Uint8Array(MAX_POOL),
+        };
         this.count = 0;
         // Deterministic RNG (mulberry32): nonzero emitter.seed replays identically.
         this.randState = 0;
@@ -129,6 +139,37 @@ export class ParticleEngine {
         return { ...this.emitter.cone };
     }
     get activeCount() { return this.count; }
+    /**
+     * Fill and return the same preallocated frame buffers on every call.
+     * Renderers consume these arrays directly instead of allocating one object
+     * per particle. The arrays stay valid until the next call to writeFrame().
+     */
+    writeFrame() {
+        const out = this.frameData;
+        out.count = this.count;
+        for (let i = 0; i < this.count; i++) {
+            const age = this.age[i];
+            const [k, e, raw] = this.locate(age);
+            const a = this.kf[k], b = this.kf[Math.min(k + 1, this.kf.length - 1)];
+            const minSize = a.size + (b.size - a.size) * e;
+            const maxSize = a.sizeMax + (b.sizeMax - a.sizeMax) * e;
+            const size = Math.max(0.5, (minSize + (maxSize - minSize) * this.sizeRatio[i]) * 0.5);
+            const p = i * 3;
+            out.position[p] = this.px[i];
+            out.position[p + 1] = this.py[i];
+            out.position[p + 2] = this.pz[i];
+            out.age[i] = age;
+            out.size[i] = size;
+            out.color[p] = Math.round(a.color.r + (b.color.r - a.color.r) * e);
+            out.color[p + 1] = Math.round(a.color.g + (b.color.g - a.color.g) * e);
+            out.color[p + 2] = Math.round(a.color.b + (b.color.b - a.color.b) * e);
+            out.alpha[i] = Math.max(0, Math.min(1, (a.opacity + (b.opacity - a.opacity) * e) / 255));
+            const shape = raw >= 0.5 ? b.shape : a.shape;
+            const code = SHAPE_ORDER.indexOf(shape);
+            out.shape[i] = code >= 0 ? code : SHAPE_ORDER.indexOf(this.is3D ? "sphere" : "circle");
+        }
+        return out;
+    }
     /** Ribbons render when the block is enabled (both 2D and 3D). */
     trailsActive() { return this.trail !== null; }
     /** Dots hidden in trail mode when the block says so (default true). */
