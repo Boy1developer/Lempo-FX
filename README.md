@@ -228,6 +228,7 @@ CI runs the parity, behavior, and contract checks on every push (`.github/workfl
 
 | Doc | What's inside |
 | --- | --- |
+| [🌐 Documentation site](https://boy1developer.github.io/Lempo-FX/) | Full visual documentation, editor guides, previews, and roadmap |
 | [docs/trails.md](docs/trails.md) | Trails & Ribbons — modes, emit types, template format, adding your own template, C++ API |
 | [docs/contracts.md](docs/contracts.md) | Shared contracts, generated bindings, export format, particle record layout |
 | [docs/testing.md](docs/testing.md) | Full test matrix |

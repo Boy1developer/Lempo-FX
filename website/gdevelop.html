@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GDevelop Guide — Lempo Particle FX Docs</title>
+<meta name="description" content="Import the Advanced Particle Emitter extension into GDevelop, set the ParticleJSON resource and play your Lempo effect in-game.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GDevelop Guide — Lempo Particle FX Docs">
+<meta property="og:description" content="Import the Advanced Particle Emitter extension into GDevelop, set the ParticleJSON resource and play your Lempo effect in-game.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / In Your Game</p>
+<h1>Using Effects in GDevelop</h1>
+<p class="lead">Design in Lempo Particle Editor, export JSON, import the extension, then
+preview the effect in GDevelop. The extension has its own simulation and renderer, so some
+behavior and visual details can differ from the editor and browser preview.</p>
+
+<h2>Four steps</h2>
+<div class="steps">
+  <div class="step"><h3>Design &amp; export</h3>
+    <p>Create your effect in Lempo Particle Editor and export it as a
+    <code>.json</code> file (validated against the export schema).</p></div>
+  <div class="step"><h3>Import the extension</h3>
+    <p>Import <code>AdvancedParticleEmitter.json</code> into your GDevelop project as an
+    extension. Requires GDevelop <strong>≥ 5.6.284</strong> — older versions render 3D
+    particles at the wrong scale.</p></div>
+  <div class="step"><h3>Add the emitter object</h3>
+    <p>Add the emitter object to your scene and set its <strong>ParticleJSON</strong> resource
+    to the exported file. If the effect uses a custom model, also set the
+    <strong>Models GLB</strong> resource to your <code>.glb</code>.</p></div>
+  <div class="step"><h3>Run</h3>
+    <p>Press preview and enjoy your effect in-game — 2D via PixiJS, 3D via Three.js,
+    trails included.</p></div>
+</div>
+
+<div class="note">Exact action/condition names depend on the extension version — see the
+extension's in-editor descriptions.</div>
+
+<h2>What the extension does</h2>
+<div class="table-wrap"><table>
+  <tr><th>Feature</th><th>Details</th></tr>
+  <tr><td><strong>2D rendering</strong></td><td>PixiJS sprite pool with per-emitter blend
+      mapping</td></tr>
+  <tr><td><strong>3D rendering</strong></td><td>Three.js — world-scale fix + sRGB colors on
+      GDevelop ≥ 5.6.284, objects attached via <code>add3DRendererObject</code></td></tr>
+  <tr><td><strong>InstancedMesh batching</strong></td><td>3D primitives collapse ~580 draw
+      calls into ~12 buckets, pixel-identical per particle; automatic classic fallback if
+      instancing is unavailable</td></tr>
+  <tr><td><strong>Trails &amp; ribbons</strong> <span class="tag new">v0.2.0</span></td>
+      <td>2D quad strips / 3D billboard strips, pooled and blend-aware, with
+      <code>hideParticle</code> honored — the existing emitters grow trail support, no new
+      objects; trail-less effects render bit-identical to before</td></tr>
+  <tr><td><strong>Blend modes</strong></td><td>Per-emitter from JSON
+      (<code>BlendingMode: 'JSON'</code>) or forced at object level</td></tr>
+  <tr><td><strong>Deterministic seed</strong></td><td>Replay is deterministic within each
+      runtime; equal seeds do not guarantee identical particle records across preview and game</td></tr>
+  <tr><td><strong>Force fields</strong> <span class="tag">v1.2</span></td>
+      <td>Turbulence, vortex, attractor, collision plane — computed in the runtime too</td></tr>
+</table></div>
+
+<h2>Compatibility notes</h2>
+<div class="table-wrap"><table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>GDevelop</td><td><code>&gt;=5.6.284</code> for 3D (world scale + sRGB)</td></tr>
+  <tr><td>PixiJS</td><td>Preview 8.21.x; GDevelop 7.4.2</td></tr>
+  <tr><td>Extension version</td><td>0.2.0 — pairs with editor v0.2.0 / export v1.2</td></tr>
+  <tr><td>Three.js</td><td>0.185.1 in both preview and GDevelop (GDevelop ≥ 5.6.284)</td></tr>
+  <tr><td>Older extensions</td><td>&lt; 0.1.2 render Screen/Lighten/Overlay as Normal
+      (single warning)</td></tr>
+</table></div>
+
+<div class="tip">The shipped runtime is tested headlessly in CI with a stubbed
+<code>gdjs</code> + real three.js / PIXI (<code>preview/test_ext_runtime.mjs</code>,
+<code>preview/test_ext_trails.mjs</code>) — so regressions in the bundled code are caught
+before you ever hit them.</div>
+
+<h2>Export checklist</h2>
+<ul>
+  <li>☐ Effect exported as <code>.json</code> from the editor (format v1.2; v1.0/v1.1 migrate)</li>
+  <li>☐ Extension <code>AdvancedParticleEmitter.json</code> imported (≥ 5.6.284)</li>
+  <li>☐ <strong>ParticleJSON</strong> resource set on the object</li>
+  <li>☐ <strong>Models GLB</strong> resource set <em>if</em> the effect uses a custom model</li>
+  <li>☐ Blend mode left on <code>JSON</code> to respect per-emitter modes</li>
+</ul>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>

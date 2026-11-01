@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor Tour — Lempo Particle FX Docs</title>
+<meta name="description" content="Walkthrough of the Lempo Particle Editor UI: toolbar, emitter panel, force fields, gravity, emission zone, states, templates, shapes and viewport navigation.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Editor Tour — Lempo Particle FX Docs">
+<meta property="og:description" content="Walkthrough of the Lempo Particle Editor UI: toolbar, emitter panel, force fields, gravity, emission zone, states, templates, shapes and viewport navigation.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / Using the Editor</p>
+<h1>Editor Tour</h1>
+<p class="lead">The window is split into four areas: a top toolbar, the settings
+sidebar on the left, the live viewport in the middle, and the states/status bar
+underneath.</p>
+
+<h2>Top toolbar</h2>
+<div class="table-wrap"><table>
+  <tr><th>Control</th><th>What it does</th></tr>
+  <tr><td><strong>Lempo</strong> menu</td><td>App menu (presets, settings, about)</td></tr>
+  <tr><td>Effect name (<em>Default</em>)</td><td>Current effect / preset</td></tr>
+  <tr><td><strong>2D / 3D</strong> toggle</td><td>Switch renderer (a purple dot marks the active one)</td></tr>
+  <tr><td><strong>FOV</strong> − / +</td><td>3D field of view</td></tr>
+  <tr><td><strong>Sens</strong> − / +</td><td>Navigation sensitivity</td></tr>
+  <tr><td><strong>New / Save / Save As / Open</strong></td>
+      <td>Effect files use the OS-native file dialog</td></tr>
+</table></div>
+
+<h2>Sidebar — Emitter panel</h2>
+<p>The emitter panel is the heart of the effect. Sections top to bottom:</p>
+
+<figure><img src="assets/img/emitter-panel.png" alt="Emitter panel — output, force fields, gravity and emission zone" loading="lazy"><figcaption><b>Emitter panel</b> — output, force fields, gravity and emission zone</figcaption></figure>
+
+<div class="table-wrap"><table>
+  <tr><th>Section</th><th>Key settings</th></tr>
+  <tr><td><strong>Particle output</strong></td>
+      <td><code>Flow</code> (particles/sec) · <code>Max</code> cap · <code>Mode</code>
+      (Infinite / Burst) · <code>Reverse</code> · <code>Align dir.</code> ·
+      <code>Blend</code> mode · <code>Seed</code></td></tr>
+  <tr><td><strong>Force fields</strong> <span class="tag">v1.2</span></td>
+      <td>Turbulence (amount/scale/speed) · Y-axis vortex · attractor (strength/radius/X/Y) ·
+      collision plane (Y, bounce, friction) — <strong>all off by default</strong></td></tr>
+  <tr><td><strong>Gravity</strong></td><td>Gravity X / Y (world pull on every particle)</td></tr>
+  <tr><td><strong>Emission zone</strong></td>
+      <td>Spawn shape (Circle / Rect …), rotation, radius, width, height</td></tr>
+</table></div>
+
+<div class="tip"><strong>Deterministic seed.</strong> A nonzero <code>seed</code> makes replay
+deterministic within each runtime. Python and C++ parity is tested; the browser preview and
+GDevelop extension have separate spawn implementations, so the same seed does not guarantee
+identical particle records between them. <code>0</code> keeps legacy unseeded behavior.</div>
+
+<div class="note">The Dear PyGui sidebar exposes blend, seed and force-field widgets.
+The Tk fallback preserves those values on round-trip but has no widgets for them.</div>
+
+<h2>States &amp; templates</h2>
+<p>Under the viewport sits the <strong>STATES</strong> bar: <em>birth</em> and <em>death</em>
+chips (plus <strong>+</strong> to add more). Each state keeps its <strong>own color</strong> —
+white means the natural material, any other color tints over the base. Colors cross-fade
+between states over the particle's life.</p>
+
+<div class="grid-2">
+  <figure><img src="assets/img/states-3d.png" alt="States &amp; templates (3D) — per-state colors" loading="lazy"><figcaption><b>States &amp; templates (3D)</b> — per-state colors</figcaption></figure>
+  <figure><img src="assets/img/states-2d.png" alt="States &amp; templates (2D)" loading="lazy"><figcaption><b>States &amp; templates (2D)</b></figcaption></figure>
+</div>
+
+<p>The sidebar also carries the <strong>templates</strong> list — ready-made effects
+(Explosion, Fire, Rain, Snow in 2D + 3D variants) — and the shape picker:</p>
+
+<div class="grid-3">
+  <figure><img src="assets/img/shapes-3d-1.png" alt="3D shapes (1)" loading="lazy"><figcaption><b>3D shapes</b> (1)</figcaption></figure>
+  <figure><img src="assets/img/shapes-3d-2.png" alt="3D shapes (2)" loading="lazy"><figcaption><b>3D shapes</b> (2)</figcaption></figure>
+  <figure><img src="assets/img/shapes-2d.png" alt="2D shapes" loading="lazy"><figcaption><b>2D shapes</b></figcaption></figure>
+</div>
+
+<h3>Shapes &amp; custom assets</h3>
+<p><strong>12 particle shapes</strong> are shared by the 2D and 3D renderers: circle, square,
+triangle, star, diamond, line, custom, sphere, cube, pyramid, torus, billboard.</p>
+
+<figure><img src="assets/img/custom-shape.png" alt="Custom shape system — bring your own image or model" loading="lazy"><figcaption><b>Custom shape system</b> — bring your own image or model</figcaption></figure>
+
+<ul>
+  <li><strong>Custom 3D models &amp; images</strong> — upload <code>.glb</code> /
+      <code>.gltf</code> / <code>.obj</code> (or images for 2D). Models render as themselves in
+      the viewport, the browser preview, and in-game. Rigged/skinned GLBs are baked to their
+      rest pose automatically.</li>
+  <li><strong>Gradual shape morph</strong> — birth-to-death shapes cross-fade inside the
+      <code>(0.25, 0.75)</code> window instead of snapping (desktop viewport + browser preview;
+      the game runtime keeps the classic swap for meshes).</li>
+</ul>
+
+<h2>Force fields in practice</h2>
+<div class="table-wrap"><table>
+  <tr><th>Field</th><th>Behavior</th></tr>
+  <tr><td>Turbulence</td><td>Age-phased noise — subtle drift early, chaos late (or the reverse)</td></tr>
+  <tr><td>Vortex</td><td>Swirl around the Y axis</td></tr>
+  <tr><td>Attractor</td><td>Pull toward a point with linear falloff over the radius</td></tr>
+  <tr><td>Collision plane</td><td>Bounce + friction at a world Y height</td></tr>
+</table></div>
+<p>All fields are off by default, so legacy motion stays bit-identical when you don't
+touch them.</p>
+
+<h2>Viewport navigation</h2>
+<div class="table-wrap"><table>
+  <tr><th>Mode</th><th>Controls (shown at the bottom of the viewport)</th></tr>
+  <tr><td><strong>2D</strong> (GDevelop-style)</td>
+      <td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>/arrows move · wheel zooms at
+      cursor · <kbd>Space</kbd>+drag pans · <kbd>F</kbd> focus · left-drag gizmo</td></tr>
+  <tr><td><strong>3D</strong> (Blender-style)</td>
+      <td><kbd>A</kbd>/<kbd>D</kbd> orbit · <kbd>W</kbd>/<kbd>S</kbd> dolly ·
+      <kbd>Q</kbd>/<kbd>E</kbd> up-down · MMB orbit · wheel dolly ·
+      <kbd>1</kbd>/<kbd>3</kbd>/<kbd>7</kbd> views · <kbd>F</kbd> focus</td></tr>
+</table></div>
+
+<h2>Status area</h2>
+<ul>
+  <li><strong>Particle count &amp; FPS</strong> (top-right of the viewport) — e.g.
+      <code>Particles: 20 · FPS: 240 C++</code> shows the compiled core in use.</li>
+  <li><strong>STATES chips</strong> + <strong>Fast preview 60FPS</strong> button + a status
+      message (Ready / OK — ready).</li>
+  <li><strong>Perf HUD</strong> — trails mode shows
+      <code>trails: N · verts · draws · sim · render</code> stats.</li>
+</ul>
+
+<div class="tip">Above ~900 particles the viewport switches to an <strong>adaptive raster
+path</strong>: the particle layer renders offscreen and uploads as a texture while guides and
+the gizmo stay crisp vector. You get the same look with far fewer draw calls.</div>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>
