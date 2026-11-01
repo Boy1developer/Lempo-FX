@@ -31,8 +31,13 @@ class ContractViewport {
   setTool() {}
   setView() {}
   setQuality() {}
+  setRenderScale() {}
   resize() {}
-  on() {}
+  on(event, callback) {
+    this.statsHandler = callback;
+    return () => { this.statsHandler = null; };
+  }
+  emitStats(stats) { this.statsHandler?.(stats); }
 }
 
 const doc = new FakeDocument();
@@ -53,9 +58,12 @@ for (let i = 1; i + 1 < ContractViewport.order.length; i += 2) {
 
 const hudElement = { textContent: "" };
 const hud = new StatsHUD(hudElement);
-hud.update({ fps: 60, frameMs: 16.7, p95Ms: 18, drawCalls: 4, triangles: 20,
+const statsViewport = new ContractViewport("stats");
+const unbindHud = hud.bind(statsViewport);
+statsViewport.emitStats({ fps: 60, frameMs: 16.7, p95Ms: 18, drawCalls: 4, triangles: 20,
   particles: 10, particlesCap: 600, dpr: 1, renderScale: 1, tier: "low" }, 1000);
 assert.match(hudElement.textContent, /60 FPS/);
 assert.match(hudElement.textContent, /10\/600 particles/);
+unbindHud();
 
 console.log("Viewport controller lifecycle and StatsHUD tests passed (100 cycles).");

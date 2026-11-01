@@ -4,6 +4,7 @@ import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { ViewHelper } from "three/addons/helpers/ViewHelper.js";
 import { ParticleEngine } from "../../../lempo-runtime/src/engine.js";
 import type { Quality } from "../QualityManager.js";
+import { StatsHUD } from "../StatsHUD.js";
 import type {
   EffectJSON, PatchOp, Tier, Tool, Viewport, ViewportEvent,
   ViewportEventPayload,
@@ -23,6 +24,8 @@ export class ThreeViewport implements Viewport {
   viewHelper!: ViewHelper;
 
   private canvas!: HTMLCanvasElement;
+  private statsElement!: HTMLDivElement;
+  private unbindStats: (() => void) | null = null;
   private host!: HTMLElement;
   private resizeObserver!: ResizeObserver;
   private emitter = new THREE.Object3D();
@@ -36,9 +39,19 @@ export class ThreeViewport implements Viewport {
   private gizmoDragging = false;
   private helperDirty = true;
   private quality: Quality = "low";
+  private renderScale = 1;
+  private statsAt = 0;
+  private statsFrames = 0;
+  private statsFrameTotal = 0;
+  private frameSamples = new Float32Array(120);
+  private frameSampleCount = 0;
+  private frameSampleIndex = 0;
   private visible = { grid: true, guides: true, stats: true };
 
-  constructor(private readonly invalidate: () => void = () => {}) {}
+  constructor(
+    private readonly invalidate: () => void = () => {},
+    private readonly setInteractionActive: (active: boolean) => void = () => {},
+  ) {}
 
   mount(host: HTMLElement): void {
     if (this.canvas) throw new Error("ThreeViewport is already mounted");
@@ -47,6 +60,12 @@ export class ThreeViewport implements Viewport {
     this.canvas.className = "lempo-viewport-three";
     this.canvas.style.cssText = "width:100%;height:100%;display:block";
     host.appendChild(this.canvas);
+    this.statsElement = document.createElement("div");
+    this.statsElement.className = "lempo-viewport-stats";
+    this.statsElement.style.cssText = "position:fixed;right:12px;top:12px;z-index:1000;padding:5px 8px;border-radius:4px;background:#101218cc;color:#e8edf5;font:11px ui-monospace,monospace;pointer-events:none;white-space:nowrap";
+    this.statsElement.hidden = !this.visible.stats;
+    host.appendChild(this.statsElement);
+    this.unbindStats = new StatsHUD(this.statsElement).bind(this);
 
     this.sceneAdapter = new ThreeScene(this.canvas, this.engine, {
       antialias: false,
@@ -126,12 +145,14 @@ export class ThreeViewport implements Viewport {
 
   render(): void {
     if (this.disposed) return;
+    const renderStart = performance.now();
     this.sceneAdapter.setView(this.visible);
     this.sceneAdapter.render();
     if (this.helperDirty || this.viewHelper.animating) {
       this.viewHelper.render(this.renderer);
       this.helperDirty = false;
     }
+    this.reportStats(performance.now() - renderStart);
   }
 
   setTool(tool: Tool): void {
@@ -149,6 +170,7 @@ export class ThreeViewport implements Viewport {
 
   setView(opts: { grid?: boolean; guides?: boolean; stats?: boolean }): void {
     this.visible = { ...this.visible, ...opts };
+    this.statsElement.hidden = !this.visible.stats;
     this.invalidate();
   }
 
@@ -156,7 +178,16 @@ export class ThreeViewport implements Viewport {
     this.quality = quality;
     const cap = quality === "low" ? 1 : quality === "medium" ? 1.5 : 2;
     const particleCap = quality === "low" ? 600 : quality === "medium" ? 1500 : 4000;
-    this.sceneAdapter.setQuality(cap, particleCap);
+    this.sceneAdapter.setQuality(cap, particleCap, this.renderScale);
+    this.resize();
+  }
+
+  setRenderScale(scale: number): void {
+    this.renderScale = Math.max(0.5, Math.min(1, scale));
+    const tier = this.quality === "auto" ? "high" : this.quality;
+    const cap = tier === "low" ? 1 : tier === "medium" ? 1.5 : 2;
+    const particleCap = tier === "low" ? 600 : tier === "medium" ? 1500 : 4000;
+    this.sceneAdapter?.setQuality(cap, particleCap, this.renderScale);
     this.resize();
   }
 
@@ -165,16 +196,47 @@ export class ThreeViewport implements Viewport {
     const rect = this.host.getBoundingClientRect();
     const width = Math.max(1, Math.floor(w ?? rect.width));
     const height = Math.max(1, Math.floor(h ?? rect.height));
-    const cap = this.quality === "low" ? 1 : this.quality === "medium" ? 1.5 : 2;
-    this.renderer.setPixelRatio(Math.min(dpr, cap));
+    const tier = this.quality === "auto" ? "high" : this.quality;
+    const cap = tier === "low" ? 1 : tier === "medium" ? 1.5 : 2;
+    this.renderer.setPixelRatio(Math.min(dpr, cap * this.renderScale));
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.invalidate();
   }
 
-  on<E extends ViewportEvent>(event: E, callback: (payload: ViewportEventPayload[E]) => void): void {
+  on<E extends ViewportEvent>(event: E, callback: (payload: ViewportEventPayload[E]) => void): () => void {
     this.listeners[event].add(callback as (payload: unknown) => void);
+    return () => { this.listeners[event].delete(callback as (payload: unknown) => void); };
+  }
+
+  private reportStats(frameMs: number): void {
+    if (!this.visible.stats) return;
+    const now = performance.now();
+    this.statsFrames++;
+    this.statsFrameTotal += frameMs;
+    this.frameSamples[this.frameSampleIndex] = frameMs;
+    this.frameSampleIndex = (this.frameSampleIndex + 1) % this.frameSamples.length;
+    this.frameSampleCount = Math.min(this.frameSampleCount + 1, this.frameSamples.length);
+    if (!this.statsAt) { this.statsAt = now; return; }
+    const elapsed = now - this.statsAt;
+    if (elapsed < 1000) return;
+    const sorted: number[] = [];
+    for (let i = 0; i < this.frameSampleCount; i++) sorted.push(this.frameSamples[i]);
+    sorted.sort((a, b) => a - b);
+    const p95 = sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
+    const tier = this.quality === "auto" ? "high" : this.quality;
+    this.emit("stats", {
+      fps: this.statsFrames * 1000 / elapsed,
+      frameMs: this.statsFrameTotal / this.statsFrames,
+      p95Ms: p95,
+      drawCalls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+      particles: this.engine.activeCount,
+      particlesCap: tier === "low" ? 600 : tier === "medium" ? 1500 : 4000,
+      dpr: this.renderer.getPixelRatio(), renderScale: this.renderScale, tier,
+    });
+    this.statsAt = now; this.statsFrames = 0; this.statsFrameTotal = 0;
   }
 
   dispose(): void {
@@ -188,8 +250,25 @@ export class ThreeViewport implements Viewport {
     this.transformControls.dispose();
     this.canvas.removeEventListener("pointerdown", this.onViewHelperPointerDown, true);
     this.viewHelper.dispose();
+    this.unbindStats?.();
+    this.unbindStats = null;
+    this.statsElement.remove();
     this.sceneAdapter.dispose();
     this.canvas.remove();
+    this.listeners.emitterMoved.clear();
+    this.listeners.pick.clear();
+    this.listeners.stats.clear();
+    this.listeners.error.clear();
+    this.source = null;
+    this.host = null as unknown as HTMLElement;
+    this.canvas = null as unknown as HTMLCanvasElement;
+    this.statsElement = null as unknown as HTMLDivElement;
+    this.sceneAdapter = null as unknown as ThreeScene;
+    this.renderer = null as unknown as THREE.WebGLRenderer;
+    this.camera = null as unknown as THREE.PerspectiveCamera;
+    this.controls = null as unknown as OrbitControls;
+    this.transformControls = null as unknown as TransformControls;
+    this.viewHelper = null as unknown as ViewHelper;
   }
 
   private onCameraChange = (): void => {
@@ -198,6 +277,7 @@ export class ThreeViewport implements Viewport {
   };
   private onDraggingChanged = (event: { value?: unknown }): void => {
     this.gizmoDragging = Boolean(event.value);
+    this.setInteractionActive(this.gizmoDragging);
     this.controls.enabled = !this.gizmoDragging;
   };
   private onEmitterChanged = (): void => {

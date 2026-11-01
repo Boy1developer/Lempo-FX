@@ -1,5 +1,8 @@
 {
   "license": "MIT",
+  "scripts": {
+    "build:viewport-browser-test": "esbuild preview/viewport/test_browser.ts --bundle --minify --format=esm --outfile=preview/viewport/test_browser.bundle.js"
+  },
   "dependencies": {
     "pixi.js": "^8.21.0",
     "three": "0.185.1",

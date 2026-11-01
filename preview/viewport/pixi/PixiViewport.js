@@ -1,11 +1,14 @@
 import { ParticleEngine } from "../../../lempo-runtime/src/engine.js";
+import { StatsHUD } from "../StatsHUD.js";
 import { PixiScene } from "../../pixi_scene.js";
 const FIXED_DT = 1 / 60;
 /** PixiJS viewport adapter with cursor-anchored zoom and pan controls. */
 export class PixiViewport {
-    constructor(invalidate = () => { }) {
+    constructor(invalidate = () => { }, setInteractionActive = () => { }) {
         this.invalidate = invalidate;
+        this.setInteractionActive = setInteractionActive;
         this.engine = new ParticleEngine();
+        this.unbindStats = null;
         this.listeners = {
             emitterMoved: new Set(), pick: new Set(), stats: new Set(), error: new Set(),
         };
@@ -19,6 +22,13 @@ export class PixiViewport {
         this.panY = 0;
         this.zoom = 1;
         this.quality = "low";
+        this.renderScale = 1;
+        this.statsAt = 0;
+        this.statsFrames = 0;
+        this.statsFrameTotal = 0;
+        this.frameSamples = new Float32Array(120);
+        this.frameSampleCount = 0;
+        this.frameSampleIndex = 0;
         this.view = { grid: true, guides: true, stats: true };
         this.pointerDown = false;
         this.panning = false;
@@ -36,6 +46,7 @@ export class PixiViewport {
             const sy = this.panY + this.emitterY * this.zoom;
             this.movingEmitter = !this.panning && this.tool === "move" && Math.hypot(p.x - sx, p.y - sy) <= 32;
             if (this.panning || this.movingEmitter) {
+                this.setInteractionActive(true);
                 event.preventDefault();
                 this.canvas.setPointerCapture(event.pointerId);
             }
@@ -62,6 +73,7 @@ export class PixiViewport {
             this.pointerDown = false;
             this.panning = false;
             this.movingEmitter = false;
+            this.setInteractionActive(false);
             if (this.canvas.hasPointerCapture(event.pointerId))
                 this.canvas.releasePointerCapture(event.pointerId);
         };
@@ -93,6 +105,12 @@ export class PixiViewport {
         this.canvas.className = "lempo-viewport-pixi";
         this.canvas.style.cssText = "width:100%;height:100%;display:block;touch-action:none";
         host.appendChild(this.canvas);
+        this.statsElement = document.createElement("div");
+        this.statsElement.className = "lempo-viewport-stats";
+        this.statsElement.style.cssText = "position:fixed;right:12px;top:12px;z-index:1000;padding:5px 8px;border-radius:4px;background:#101218cc;color:#e8edf5;font:11px ui-monospace,monospace;pointer-events:none;white-space:nowrap";
+        this.statsElement.hidden = !this.view.stats;
+        host.appendChild(this.statsElement);
+        this.unbindStats = new StatsHUD(this.statsElement).bind(this);
         this.sceneAdapter = new PixiScene(this.canvas, this.engine);
         const maxDpr = this.quality === "low" ? 1 : this.quality === "medium" ? 1.5 : 2;
         void this.sceneAdapter.init({ maxDpr, antialias: this.quality === "high", dynamicTrails: true })
@@ -151,15 +169,22 @@ export class PixiViewport {
     update(dt) {
         if (this.playing && this.source)
             this.engine.update(dt, this.emitterX, this.emitterY);
-        if (this.sceneAdapter?.ready) {
+        if (this.source && this.sceneAdapter?.ready) {
             this.sceneAdapter.setTransform(this.panX, this.panY, this.zoom);
             this.sceneAdapter.sync(this.emitterX, this.emitterY);
         }
     }
-    render() { this.sceneAdapter?.render(); }
+    render() {
+        if (!this.sceneAdapter?.ready)
+            return;
+        const start = performance.now();
+        this.sceneAdapter.render();
+        this.reportStats(performance.now() - start);
+    }
     setTool(tool) { this.tool = tool; this.invalidate(); }
     setView(options) {
         this.view = { ...this.view, ...options };
+        this.statsElement.hidden = !this.view.stats;
         this.applyView();
         this.invalidate();
     }
@@ -167,7 +192,14 @@ export class PixiViewport {
         this.quality = quality;
         const dpr = quality === "low" ? 1 : quality === "medium" ? 1.5 : 2;
         const cap = quality === "low" ? 600 : quality === "medium" ? 1500 : 4000;
-        this.sceneAdapter?.setQuality(dpr, cap);
+        this.sceneAdapter?.setQuality(dpr, cap, this.renderScale);
+        this.resize();
+    }
+    setRenderScale(scale) {
+        this.renderScale = Math.max(0.5, Math.min(1, scale));
+        const dpr = this.quality === "low" ? 1 : this.quality === "medium" ? 1.5 : 2;
+        const cap = this.quality === "low" ? 600 : this.quality === "medium" ? 1500 : 4000;
+        this.sceneAdapter?.setQuality(dpr, cap, this.renderScale);
         this.resize();
     }
     resize(width, height, dpr = window.devicePixelRatio || 1) {
@@ -178,9 +210,10 @@ export class PixiViewport {
         const h = Math.max(1, Math.floor(height ?? rect.height));
         if (this.sceneAdapter?.ready) {
             const cap = this.quality === "low" ? 600 : this.quality === "medium" ? 1500 : 4000;
-            this.sceneAdapter.setQuality(Math.min(dpr, this.quality === "low" ? 1 : this.quality === "medium" ? 1.5 : 2), cap);
+            this.sceneAdapter.setQuality(Math.min(dpr, this.quality === "low" ? 1 : this.quality === "medium" ? 1.5 : 2), cap, this.renderScale);
             this.sceneAdapter.resize(w, h, dpr);
-            this.sceneAdapter.sync(this.emitterX, this.emitterY);
+            if (this.source)
+                this.sceneAdapter.sync(this.emitterX, this.emitterY);
         }
         if (this.emitterX === 0 && this.emitterY === 0) {
             this.emitterX = w / 2;
@@ -190,12 +223,53 @@ export class PixiViewport {
     }
     on(event, callback) {
         this.listeners[event].add(callback);
+        return () => { this.listeners[event].delete(callback); };
+    }
+    reportStats(frameMs) {
+        if (!this.view.stats)
+            return;
+        const now = performance.now();
+        this.statsFrames++;
+        this.statsFrameTotal += frameMs;
+        this.frameSamples[this.frameSampleIndex] = frameMs;
+        this.frameSampleIndex = (this.frameSampleIndex + 1) % this.frameSamples.length;
+        this.frameSampleCount = Math.min(this.frameSampleCount + 1, this.frameSamples.length);
+        if (!this.statsAt) {
+            this.statsAt = now;
+            return;
+        }
+        const elapsed = now - this.statsAt;
+        if (elapsed < 1000)
+            return;
+        const sorted = [];
+        for (let i = 0; i < this.frameSampleCount; i++)
+            sorted.push(this.frameSamples[i]);
+        sorted.sort((a, b) => a - b);
+        const p95 = sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
+        const tier = this.quality === "auto" ? "high" : this.quality;
+        const particles = this.engine.activeCount;
+        this.emit("stats", {
+            fps: this.statsFrames * 1000 / elapsed,
+            frameMs: this.statsFrameTotal / this.statsFrames,
+            p95Ms: p95,
+            drawCalls: this.sceneAdapter.lastDrawCalls,
+            triangles: particles * 2 + this.sceneAdapter.activeTrailMeshCount * 32,
+            particles,
+            particlesCap: tier === "low" ? 600 : tier === "medium" ? 1500 : 4000,
+            dpr: this.sceneAdapter.resolution, renderScale: this.renderScale, tier,
+        });
+        this.statsAt = now;
+        this.statsFrames = 0;
+        this.statsFrameTotal = 0;
     }
     dispose() {
         if (this.disposed || !this.canvas)
             return;
         this.disposed = true;
         this.resizeObserver.disconnect();
+        this.unbindStats?.();
+        this.unbindStats = null;
+        this.statsElement.remove();
         this.canvas.removeEventListener("pointerdown", this.onPointerDown);
         this.canvas.removeEventListener("pointermove", this.onPointerMove);
         this.canvas.removeEventListener("pointerup", this.onPointerUp);
@@ -205,6 +279,15 @@ export class PixiViewport {
         this.host.removeEventListener("keyup", this.onKeyUp);
         this.sceneAdapter.destroy();
         this.canvas.remove();
+        this.listeners.emitterMoved.clear();
+        this.listeners.pick.clear();
+        this.listeners.stats.clear();
+        this.listeners.error.clear();
+        this.source = null;
+        this.host = null;
+        this.canvas = null;
+        this.statsElement = null;
+        this.sceneAdapter = null;
     }
     localPoint(event) {
         const rect = this.canvas.getBoundingClientRect();

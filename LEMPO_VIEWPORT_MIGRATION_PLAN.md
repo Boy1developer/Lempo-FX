@@ -247,7 +247,7 @@ Every message: `{ "type": string, "seq": number, ...payload }`. `seq` is monoton
 
 **Acceptance:** both viewports pass `Viewport` contract tests (mount → setEffect → patch → dispose, 100 cycles, no resource growth — see §7.9); 2D↔3D switching works; blend-mode fallbacks warn exactly once; stats HUD works.
 
-> **Implementation status (2026-11-01):** both adapters and controller switching are implemented. Automated Node checks cover controller lifecycle for 100 mode replacements, engine/guide/model/blend regressions, and HUD formatting. Actual Three.js/Pixi GPU resource-growth and visual-parity acceptance still requires running the adapters in a real browser; the lifecycle fake test does not measure WebGL resource growth. Editor-to-host integration is Phase 3.
+> **Implementation status (2026-11-01):** both adapters and controller switching pass a Chromium/WebGL browser test for 100 mode replacements (50 per adapter), including active 2D/3D trails, populated per-particle alpha attributes, setEffect/patch/render/dispose, visible StatsHUD mount/toggle/disposal, zero canvas/HUD/resource-owner leaks or browser errors, stable Three.js renderer memory (drift 0; post-dispose maximum 1 geometry and 1 fixed renderer texture within the small baseline tolerance), and one warning per blend fallback. The forced Three classic-path check also renders live pooled meshes. Adaptive-quality thresholds/persistence and HUD formatting are covered by Node checks; tier reductions pause during gizmo interaction and show the planned toast. `npm run build:viewport-browser-test` builds the test page bundle. Editor-to-host integration is Phase 3.
 
 ### Phase 3 — Bridge (Python side)
 

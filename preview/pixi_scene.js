@@ -13,6 +13,7 @@ const TEX = 128; // texture atlas cell (px)
 const TEX_R = TEX * 0.26; // shape radius inside the cell (room for glow)
 const TRAIL_CAP = 384; // max ribbons drawn per frame
 const TRAIL_ST = 17; // stations per ribbon
+let warnedPixiLightenFallback = false;
 function bake(draw) {
     const c = document.createElement("canvas");
     c.width = TEX;
@@ -98,6 +99,9 @@ function buildTextures() {
     };
 }
 export class PixiScene {
+    get lastDrawCalls() { return this.drawCalls; }
+    get resolution() { return this.ready ? this.app.renderer.resolution : 1; }
+    get activeTrailMeshCount() { return this.trailMeshes.reduce((total, mesh) => total + (mesh.alpha > 0 ? 1 : 0), 0); }
     constructor(canvas, engine) {
         this.canvas = canvas;
         this.engine = engine;
@@ -112,9 +116,15 @@ export class PixiScene {
         this.lastW = 0;
         this.lastH = 0;
         this.blend = "";
-        this.warnedLighten = false;
         this.maxDpr = 2;
         this.particleCap = POOL;
+        this.renderScale = 1;
+        this.lastGizmoX = Number.NaN;
+        this.lastGizmoY = Number.NaN;
+        this.initialized = false;
+        this.destroyed = false;
+        this.drawCalls = 0;
+        this.restoreDrawCallCounters = [];
         this.ready = false;
     }
     async init(options = {}) {
@@ -130,6 +140,8 @@ export class PixiScene {
             powerPreference: "high-performance",
             roundPixels: true,
         });
+        this.initialized = true;
+        this.installDrawCallCounter();
         this.app.ticker.stop();
         this.world = new PIXI.Container();
         this.app.stage.addChild(this.world);
@@ -149,8 +161,10 @@ export class PixiScene {
     }
     /** Render from the viewport's shared animation-frame loop. */
     render() {
-        if (this.ready)
-            this.app.renderer.render({ container: this.app.stage });
+        if (!this.ready)
+            return;
+        this.drawCalls = 0;
+        this.app.renderer.render({ container: this.app.stage });
     }
     setTransform(x, y, zoom) {
         if (!this.ready)
@@ -164,25 +178,30 @@ export class PixiScene {
         if (options.guides !== undefined)
             this.gizmo.visible = options.guides;
     }
-    setQuality(maxDpr, particleCap = POOL) {
+    setQuality(maxDpr, particleCap = POOL, renderScale = 1) {
         this.maxDpr = Math.max(0.5, Math.min(2, maxDpr));
         this.particleCap = Math.max(1, Math.min(POOL, Math.floor(particleCap)));
+        this.renderScale = Math.max(0.5, Math.min(1, renderScale));
         if (this.ready)
-            this.app.renderer.resolution = Math.min(this.maxDpr, window.devicePixelRatio || 1);
+            this.app.renderer.resolution = Math.min(this.maxDpr * this.renderScale, window.devicePixelRatio || 1);
     }
     resize(width, height, dpr = window.devicePixelRatio || 1) {
         if (!this.ready)
             return;
-        this.app.renderer.resolution = Math.min(this.maxDpr, dpr);
+        this.app.renderer.resolution = Math.min(this.maxDpr * this.renderScale, dpr);
         this.app.renderer.resize(Math.max(1, width), Math.max(1, height));
         this.lastW = Math.max(1, width);
         this.lastH = Math.max(1, height);
         this.drawGrid(this.lastW, this.lastH);
     }
     destroy() {
-        if (!this.ready)
+        if (!this.initialized || this.destroyed)
             return;
+        this.destroyed = true;
         this.app.ticker.stop();
+        for (const restore of this.restoreDrawCallCounters)
+            restore();
+        this.restoreDrawCallCounters.length = 0;
         for (const bucket of this.particleBuckets.values())
             bucket.destroy({ children: true });
         this.particleBuckets.clear();
@@ -199,6 +218,13 @@ export class PixiScene {
         this.tex = {};
         this.ready = false;
         this.app.destroy({ removeView: false }, { children: true });
+        this.world = null;
+        this.particleLayer = null;
+        this.trails = null;
+        this.gizmo = null;
+        this.grid = null;
+        this.app = null;
+        this.canvas = null;
     }
     normShape(shape) {
         const s = String(shape ?? "circle").toLowerCase();
@@ -233,8 +259,8 @@ export class PixiScene {
             case "Screen": return "screen";
             case "Overlay": return "overlay";
             case "Lighten":
-                if (!this.warnedLighten) {
-                    this.warnedLighten = true;
+                if (!warnedPixiLightenFallback) {
+                    warnedPixiLightenFallback = true;
                     console.warn("[Lempo viewport] PixiJS Lighten blending is unsupported; using Normal.");
                 }
                 return "normal";
@@ -260,6 +286,27 @@ export class PixiScene {
             g.lineTo(ccx + (i * W) / 14, H);
         }
         g.stroke();
+    }
+    installDrawCallCounter() {
+        const renderer = this.app.renderer;
+        const gl = renderer.gl;
+        if (!gl)
+            return;
+        for (const name of ["drawArrays", "drawElements", "drawArraysInstanced", "drawElementsInstanced"]) {
+            const original = gl[name];
+            if (typeof original !== "function")
+                continue;
+            const scene = this;
+            const wrapped = function (...args) {
+                scene.drawCalls++;
+                return original.apply(gl, args);
+            };
+            try {
+                gl[name] = wrapped;
+                this.restoreDrawCallCounters.push(() => { gl[name] = original; });
+            }
+            catch { /* Some browser WebGL bindings expose non-writable draw methods. */ }
+        }
     }
     createTrailMeshes() {
         const indices = new Uint32Array((TRAIL_ST - 1) * 6);
@@ -403,7 +450,7 @@ export class PixiScene {
         if (W !== this.lastW || H !== this.lastH) {
             this.lastW = W;
             this.lastH = H;
-            const dpr = Math.min(this.maxDpr, window.devicePixelRatio || 1);
+            const dpr = Math.min(this.maxDpr * this.renderScale, window.devicePixelRatio || 1);
             this.app.renderer.resolution = dpr;
             this.app.renderer.resize(W, H);
             this.drawGrid(W, H);
@@ -506,11 +553,15 @@ export class PixiScene {
             for (const mesh of this.trailMeshes)
                 mesh.alpha = 0;
         // emitter gizmo (X red / Y blue)
-        const gz = this.gizmo;
-        gz.clear();
-        gz.rect(ex, ey - 2, 95, 4);
-        gz.fill({ color: 0xff3b3b });
-        gz.rect(ex - 2, ey - 95, 4, 95);
-        gz.fill({ color: 0x2f6bff });
+        if (ex !== this.lastGizmoX || ey !== this.lastGizmoY) {
+            this.lastGizmoX = ex;
+            this.lastGizmoY = ey;
+            const gz = this.gizmo;
+            gz.clear();
+            gz.rect(ex, ey - 2, 95, 4);
+            gz.fill({ color: 0xff3b3b });
+            gz.rect(ex - 2, ey - 95, 4, 95);
+            gz.fill({ color: 0x2f6bff });
+        }
     }
 }

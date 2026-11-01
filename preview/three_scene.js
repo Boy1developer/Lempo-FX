@@ -17,6 +17,7 @@ const BASE_DIST = 560;
 // ([glow, edge, core, edge, glow] -> glow + outer + core in a single draw)
 const TRAIL_POOL = 384;
 const TRAIL_ST = 17; // stations per ribbon (16 segments)
+const warnedThreeBlendFallbacks = new Set();
 /** Collapse SkinnedMeshes under root to static Meshes baked in rest pose.
  *
  * Pooled particles clone the template (tpl.clone(true)), and a plain
@@ -157,6 +158,9 @@ export class ThreeScene {
         this.meshes = [];
         this.bucketGeos = [];
         this.bucketMats = [];
+        this.classicPools = [];
+        this.useClassicPath = false;
+        this.classicCount = 0;
         this.byShape = {};
         this.solid = [];
         this.guides = new THREE.Group();
@@ -167,6 +171,7 @@ export class ThreeScene {
         this.lastW = 0;
         this.lastH = 0;
         this.particleCap = CAP;
+        this.renderScale = 1;
         // reused per-frame instance counters (no per-frame allocation)
         this.counts = [];
         // uploaded-model rendering (custom shape): normalized templates + clone pool
@@ -175,7 +180,6 @@ export class ThreeScene {
         this.modelPool = [];
         this.modelRev = -1;
         this.blendMode = "";
-        this.warnedBlendFallbacks = new Set();
         this.blendRev = -1;
         // ribbon strips (trails): pooled 5-wide cross-section meshes sharing one
         // vertex-colored material; hidden when the effect has no trails block
@@ -200,6 +204,10 @@ export class ThreeScene {
         this.renderer.toneMappingExposure = 1.1;
         this.renderer.shadowMap.enabled = renderOptions.shadows;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.useClassicPath = options.forceClassicPath ?? (!this.renderer.capabilities.isWebGL2 &&
+            !this.renderer.extensions.has("ANGLE_instanced_arrays"));
+        if (this.useClassicPath)
+            console.warn("[Lempo viewport] Instancing is unavailable; using the pooled classic mesh path.");
         this.camera = new THREE.PerspectiveCamera(60, 1, 1, 6000);
         this.scene.fog = new THREE.Fog(0x101218, 900, 2400);
         // lighting rig: cool sky / warm ground + shadowed key light
@@ -260,9 +268,19 @@ export class ThreeScene {
                     blending: THREE.AdditiveBlending, depthWrite: false,
                     side: THREE.DoubleSide,
                 });
+            mat.onBeforeCompile = (shader) => {
+                shader.vertexShader = shader.vertexShader
+                    .replace("#include <common>", "#include <common>\n#ifdef USE_INSTANCING\nattribute float instanceAlpha;\nvarying float vLempoInstanceAlpha;\n#endif")
+                    .replace("#include <begin_vertex>", "#include <begin_vertex>\n#ifdef USE_INSTANCING\nvLempoInstanceAlpha = instanceAlpha;\n#endif");
+                shader.fragmentShader = shader.fragmentShader
+                    .replace("#include <common>", "#include <common>\n#ifdef USE_INSTANCING\nvarying float vLempoInstanceAlpha;\n#endif")
+                    .replace("#include <color_fragment>", "#include <color_fragment>\n#ifdef USE_INSTANCING\ndiffuseColor.a *= vLempoInstanceAlpha;\n#endif");
+            };
+            mat.customProgramCacheKey = () => "lempo-instance-alpha-v1";
             this.meshes.push(null);
             this.bucketGeos.push(geos[key]);
             this.bucketMats.push(mat);
+            this.classicPools.push([]);
             this.solid.push(isSolid);
             this.byShape[key] = idx;
         });
@@ -440,8 +458,8 @@ export class ThreeScene {
             blending = THREE.CustomBlending;
             equation = THREE.MaxEquation;
         }
-        else if (mode === "Overlay" && !this.warnedBlendFallbacks.has(mode)) {
-            this.warnedBlendFallbacks.add(mode);
+        else if (mode === "Overlay" && !warnedThreeBlendFallbacks.has(mode)) {
+            warnedThreeBlendFallbacks.add(mode);
             console.warn("[Lempo viewport] Three.js Overlay blending is unsupported; using Normal.");
         }
         const apply = (m) => {
@@ -457,6 +475,9 @@ export class ThreeScene {
         };
         for (const material of this.bucketMats)
             apply(material);
+        for (const pool of this.classicPools)
+            for (const mesh of pool)
+                apply(mesh.material);
         for (const p of this.modelPool)
             for (const e of p.mats)
                 apply(e.m);
@@ -631,6 +652,34 @@ export class ThreeScene {
         if (key === "custom" && ref && this.drawModel(ref, x, y, z, Math.max(0.01, size), age, r, g, b, alpha))
             return;
         const mi = this.byShape[key];
+        if (this.useClassicPath) {
+            if (this.classicCount >= Math.min(600, this.particleCap))
+                return;
+            const slot = counts[mi]++;
+            const pool = this.classicPools[mi];
+            while (pool.length <= slot) {
+                const material = this.bucketMats[mi].clone();
+                const mesh = new THREE.Mesh(this.bucketGeos[mi], material);
+                mesh.frustumCulled = false;
+                mesh.visible = false;
+                this.scene.add(mesh);
+                pool.push(mesh);
+            }
+            const mesh = pool[slot];
+            const s = Math.max(0.01, size);
+            mesh.position.set(x, y, z);
+            if (this.flat.has(key))
+                mesh.quaternion.copy(this.camera.quaternion);
+            else
+                mesh.rotation.set(age * 0.7, age * 0.9, 0);
+            mesh.scale.set(s, s, s);
+            mesh.visible = true;
+            const material = mesh.material;
+            material.color.setRGB(r / 255, g / 255, b / 255);
+            material.opacity = alpha;
+            this.classicCount++;
+            return;
+        }
         const slot = counts[mi]++;
         if (slot >= CAP)
             return;
@@ -640,6 +689,9 @@ export class ThreeScene {
             mesh.frustumCulled = false;
             mesh.castShadow = this.solid[mi];
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            const alphaAttr = new THREE.InstancedBufferAttribute(new Float32Array(CAP), 1);
+            alphaAttr.setUsage(THREE.DynamicDrawUsage);
+            mesh.geometry.setAttribute("instanceAlpha", alphaAttr);
             mesh.count = 0;
             this.scene.add(mesh);
             this.meshes[mi] = mesh;
@@ -655,9 +707,12 @@ export class ThreeScene {
         this.dummy.scale.set(s, s, s);
         this.dummy.updateMatrix();
         mesh.setMatrixAt(slot, this.dummy.matrix);
-        // additive blending: bake alpha into RGB (matches 2D preview look)
-        this.tmpColor.setRGB((r / 255) * alpha, (g / 255) * alpha, (b / 255) * alpha);
+        this.tmpColor.setRGB(r / 255, g / 255, b / 255);
         mesh.setColorAt(slot, this.tmpColor);
+        const alphaAttr = mesh.geometry.getAttribute("instanceAlpha");
+        if (alphaAttr)
+            alphaAttr.setX(slot, alpha);
+        mesh.instanceColor?.setUsage(THREE.DynamicDrawUsage);
     }
     render() {
         const W = Math.max(1, Math.round(this.canvas.clientWidth || 1));
@@ -697,6 +752,7 @@ export class ThreeScene {
             : (this.counts = new Array(this.meshes.length).fill(0));
         const tf = this.engine.trailFrame();
         const hideDots = this.engine.trailsHideDots();
+        this.classicCount = 0;
         if (!hideDots) {
             const frame = this.engine.writeFrame();
             const n = Math.min(frame.count, this.particleCap);
@@ -719,16 +775,35 @@ export class ThreeScene {
             }
         }
         for (let m = 0; m < this.meshes.length; m++) {
+            if (this.useClassicPath) {
+                for (let i = counts[m]; i < this.classicPools[m].length; i++)
+                    this.classicPools[m][i].visible = false;
+                continue;
+            }
             const mesh = this.meshes[m];
             if (!mesh)
                 continue;
             mesh.count = counts[m];
             // empty buckets cost no draw call (guides/floor are separate objects)
             mesh.visible = counts[m] > 0;
+            mesh.instanceMatrix.clearUpdateRanges();
+            if (counts[m] > 0)
+                mesh.instanceMatrix.addUpdateRange(0, counts[m] * 16);
             mesh.instanceMatrix.needsUpdate = true;
+            const alphaAttr = mesh.geometry.getAttribute("instanceAlpha");
+            if (alphaAttr) {
+                alphaAttr.clearUpdateRanges();
+                if (counts[m] > 0)
+                    alphaAttr.addUpdateRange(0, counts[m]);
+                alphaAttr.needsUpdate = true;
+            }
             const ic = mesh.instanceColor;
-            if (ic)
+            if (ic) {
+                ic.clearUpdateRanges();
+                if (counts[m] > 0)
+                    ic.addUpdateRange(0, counts[m] * 3);
                 ic.needsUpdate = true;
+            }
         }
         for (const p of this.modelPool) {
             if (!p.used) {
@@ -755,9 +830,10 @@ export class ThreeScene {
         this.renderer.render(this.scene, this.camera);
     }
     setExternalCamera(enabled) { this.externalCamera = enabled; }
-    setQuality(maxDpr, particleCap) {
+    setQuality(maxDpr, particleCap, renderScale = 1) {
         this.particleCap = Math.max(1, Math.min(CAP, Math.floor(particleCap)));
-        this.renderer.setPixelRatio(Math.min(2, Math.max(0.5, maxDpr), window.devicePixelRatio || 1));
+        this.renderScale = Math.max(0.5, Math.min(1, renderScale));
+        this.renderer.setPixelRatio(Math.min(2, Math.max(0.5, maxDpr) * this.renderScale, window.devicePixelRatio || 1));
     }
     setView(opts) {
         if (opts.grid !== undefined)
@@ -791,6 +867,17 @@ export class ThreeScene {
                     mesh.material?.dispose();
             });
         }
+        this.scene.clear();
+        this.modelCache.clear();
+        this.modelLoading.clear();
+        this.modelPool.length = 0;
+        this.meshes.length = 0;
+        this.bucketGeos.length = 0;
+        this.bucketMats.length = 0;
+        this.classicPools.length = 0;
+        this.ribbons.length = 0;
+        this.counts.length = 0;
         this.renderer.dispose();
+        this.renderer.forceContextLoss();
     }
 }

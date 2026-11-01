@@ -21,7 +21,11 @@ export class ViewportController {
   private accumulator = 0;
   private dirty = true;
   private playing = false;
+  private interactionActive = false;
   private disposed = false;
+  private host: HTMLElement | null = null;
+  private qualityToast: HTMLElement | null = null;
+  private qualityToastTimer = 0;
 
   constructor(private readonly doc: Document = document) {
     doc.addEventListener("visibilitychange", this.onVisibilityChange);
@@ -37,6 +41,7 @@ export class ViewportController {
   setViewport(viewport: Viewport, element: HTMLElement): void {
     this.viewport?.dispose();
     this.viewport = viewport;
+    this.host = element;
     viewport.mount(element);
     if (this.playing) viewport.play(); else viewport.pause();
     this.invalidate();
@@ -45,11 +50,12 @@ export class ViewportController {
   setMode(mode: Mode, element: HTMLElement): void {
     if (this.mode === mode && this.viewport) return;
     const viewport: Viewport = mode === "3d"
-      ? new ThreeViewport(() => this.invalidate())
-      : new PixiViewport(() => this.invalidate());
+      ? new ThreeViewport(() => this.invalidate(), (active) => this.setInteractionActive(active))
+      : new PixiViewport(() => this.invalidate(), (active) => this.setInteractionActive(active));
     this.setViewport(viewport, element);
     this.mode = mode;
     this.viewport?.setQuality(this.quality.currentTier);
+    this.viewport?.setRenderScale(this.quality.scale);
   }
 
   setEffect(effect: EffectJSON): void { this.requireViewport().setEffect(effect); this.invalidate(); }
@@ -61,9 +67,11 @@ export class ViewportController {
   }
   setQuality(quality: Quality): void {
     this.quality.setQuality(quality);
-    this.viewport?.setQuality(quality);
+    this.viewport?.setQuality(quality === "auto" ? this.quality.currentTier : quality);
+    this.viewport?.setRenderScale(this.quality.scale);
     this.invalidate();
   }
+  setInteractionActive(active: boolean): void { this.interactionActive = active; }
   resize(w: number, h: number, dpr: number): void {
     this.viewport?.resize(w, h, dpr);
     this.invalidate();
@@ -79,6 +87,10 @@ export class ViewportController {
     if (this.frameId) cancelAnimationFrame(this.frameId);
     this.frameId = 0;
     this.doc.removeEventListener("visibilitychange", this.onVisibilityChange);
+    if (this.qualityToastTimer) window.clearTimeout(this.qualityToastTimer);
+    this.qualityToast?.remove();
+    this.qualityToast = null;
+    this.host = null;
     this.viewport?.dispose();
     this.viewport = null;
     this.mode = null;
@@ -126,7 +138,30 @@ export class ViewportController {
       this.frameHandler({ now, dt: elapsed });
       this.dirty = false;
     }
-    this.quality.recordFrame(performance.now() - frameStart, elapsed);
+    const previousTier = this.quality.currentTier;
+    if (!this.interactionActive && this.quality.recordFrame(performance.now() - frameStart, elapsed)) {
+      this.viewport?.setQuality(this.quality.currentTier);
+      this.viewport?.setRenderScale(this.quality.scale);
+      const rank = { low: 0, medium: 1, high: 2 };
+      if (rank[this.quality.currentTier] < rank[previousTier]) this.showQualityToast();
+    }
     this.requestIfNeeded();
   };
+
+  private showQualityToast(): void {
+    if (!this.host) return;
+    if (!this.qualityToast) {
+      this.qualityToast = this.doc.createElement("div");
+      this.qualityToast.setAttribute("role", "status");
+      this.qualityToast.style.cssText = "position:fixed;right:20px;bottom:20px;z-index:2147483647;padding:7px 10px;border-radius:5px;background:#20232ddd;color:#fff;font:12px sans-serif;pointer-events:none";
+      this.host.appendChild(this.qualityToast);
+    }
+    this.qualityToast.textContent = "Quality lowered for performance";
+    this.qualityToast.hidden = false;
+    if (this.qualityToastTimer) window.clearTimeout(this.qualityToastTimer);
+    this.qualityToastTimer = window.setTimeout(() => {
+      if (this.qualityToast) this.qualityToast.hidden = true;
+      this.qualityToastTimer = 0;
+    }, 2200);
+  }
 }

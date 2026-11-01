@@ -41,6 +41,7 @@ export interface Viewport {
   setTool(tool: Tool): void;
   setView(opts: { grid?: boolean; guides?: boolean; stats?: boolean }): void;
   setQuality(quality: Tier | "auto"): void;
+  setRenderScale(scale: number): void;
   resize(w: number, h: number, dpr: number): void;
-  on<E extends ViewportEvent>(event: E, callback: (payload: ViewportEventPayload[E]) => void): void;
+  on<E extends ViewportEvent>(event: E, callback: (payload: ViewportEventPayload[E]) => void): () => void;
 }

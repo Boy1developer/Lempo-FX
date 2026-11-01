@@ -4,8 +4,11 @@ export class StatsHUD {
         this.element = element;
         this.lastUpdate = 0;
     }
+    bind(viewport) {
+        return viewport.on("stats", (stats) => this.update(stats, performance.now()));
+    }
     update(stats, nowMs) {
-        if (nowMs - this.lastUpdate < 1000)
+        if (this.lastUpdate && nowMs - this.lastUpdate < 1000)
             return;
         this.lastUpdate = nowMs;
         const cap = stats.particlesCap == null ? "∞" : String(stats.particlesCap);

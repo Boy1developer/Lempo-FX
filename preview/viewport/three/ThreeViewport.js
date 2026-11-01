@@ -3,13 +3,16 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { ViewHelper } from "three/addons/helpers/ViewHelper.js";
 import { ParticleEngine } from "../../../lempo-runtime/src/engine.js";
+import { StatsHUD } from "../StatsHUD.js";
 import { ThreeScene } from "../../three_scene.js";
 const FIXED_DT = 1 / 60;
 /** Three.js viewport adapter; owns controls while ThreeScene owns particle rendering. */
 export class ThreeViewport {
-    constructor(invalidate = () => { }) {
+    constructor(invalidate = () => { }, setInteractionActive = () => { }) {
         this.invalidate = invalidate;
+        this.setInteractionActive = setInteractionActive;
         this.engine = new ParticleEngine();
+        this.unbindStats = null;
         this.emitter = new THREE.Object3D();
         this.emitterAxes = new THREE.AxesHelper(30);
         this.listeners = {
@@ -21,6 +24,13 @@ export class ThreeViewport {
         this.gizmoDragging = false;
         this.helperDirty = true;
         this.quality = "low";
+        this.renderScale = 1;
+        this.statsAt = 0;
+        this.statsFrames = 0;
+        this.statsFrameTotal = 0;
+        this.frameSamples = new Float32Array(120);
+        this.frameSampleCount = 0;
+        this.frameSampleIndex = 0;
         this.visible = { grid: true, guides: true, stats: true };
         this.onCameraChange = () => {
             this.helperDirty = true;
@@ -28,6 +38,7 @@ export class ThreeViewport {
         };
         this.onDraggingChanged = (event) => {
             this.gizmoDragging = Boolean(event.value);
+            this.setInteractionActive(this.gizmoDragging);
             this.controls.enabled = !this.gizmoDragging;
         };
         this.onEmitterChanged = () => {
@@ -55,6 +66,12 @@ export class ThreeViewport {
         this.canvas.className = "lempo-viewport-three";
         this.canvas.style.cssText = "width:100%;height:100%;display:block";
         host.appendChild(this.canvas);
+        this.statsElement = document.createElement("div");
+        this.statsElement.className = "lempo-viewport-stats";
+        this.statsElement.style.cssText = "position:fixed;right:12px;top:12px;z-index:1000;padding:5px 8px;border-radius:4px;background:#101218cc;color:#e8edf5;font:11px ui-monospace,monospace;pointer-events:none;white-space:nowrap";
+        this.statsElement.hidden = !this.visible.stats;
+        host.appendChild(this.statsElement);
+        this.unbindStats = new StatsHUD(this.statsElement).bind(this);
         this.sceneAdapter = new ThreeScene(this.canvas, this.engine, {
             antialias: false,
             alpha: false,
@@ -132,12 +149,14 @@ export class ThreeViewport {
     render() {
         if (this.disposed)
             return;
+        const renderStart = performance.now();
         this.sceneAdapter.setView(this.visible);
         this.sceneAdapter.render();
         if (this.helperDirty || this.viewHelper.animating) {
             this.viewHelper.render(this.renderer);
             this.helperDirty = false;
         }
+        this.reportStats(performance.now() - renderStart);
     }
     setTool(tool) {
         if (tool === "move") {
@@ -154,13 +173,22 @@ export class ThreeViewport {
     }
     setView(opts) {
         this.visible = { ...this.visible, ...opts };
+        this.statsElement.hidden = !this.visible.stats;
         this.invalidate();
     }
     setQuality(quality) {
         this.quality = quality;
         const cap = quality === "low" ? 1 : quality === "medium" ? 1.5 : 2;
         const particleCap = quality === "low" ? 600 : quality === "medium" ? 1500 : 4000;
-        this.sceneAdapter.setQuality(cap, particleCap);
+        this.sceneAdapter.setQuality(cap, particleCap, this.renderScale);
+        this.resize();
+    }
+    setRenderScale(scale) {
+        this.renderScale = Math.max(0.5, Math.min(1, scale));
+        const tier = this.quality === "auto" ? "high" : this.quality;
+        const cap = tier === "low" ? 1 : tier === "medium" ? 1.5 : 2;
+        const particleCap = tier === "low" ? 600 : tier === "medium" ? 1500 : 4000;
+        this.sceneAdapter?.setQuality(cap, particleCap, this.renderScale);
         this.resize();
     }
     resize(w, h, dpr = window.devicePixelRatio || 1) {
@@ -169,8 +197,9 @@ export class ThreeViewport {
         const rect = this.host.getBoundingClientRect();
         const width = Math.max(1, Math.floor(w ?? rect.width));
         const height = Math.max(1, Math.floor(h ?? rect.height));
-        const cap = this.quality === "low" ? 1 : this.quality === "medium" ? 1.5 : 2;
-        this.renderer.setPixelRatio(Math.min(dpr, cap));
+        const tier = this.quality === "auto" ? "high" : this.quality;
+        const cap = tier === "low" ? 1 : tier === "medium" ? 1.5 : 2;
+        this.renderer.setPixelRatio(Math.min(dpr, cap * this.renderScale));
         this.renderer.setSize(width, height, false);
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
@@ -178,6 +207,43 @@ export class ThreeViewport {
     }
     on(event, callback) {
         this.listeners[event].add(callback);
+        return () => { this.listeners[event].delete(callback); };
+    }
+    reportStats(frameMs) {
+        if (!this.visible.stats)
+            return;
+        const now = performance.now();
+        this.statsFrames++;
+        this.statsFrameTotal += frameMs;
+        this.frameSamples[this.frameSampleIndex] = frameMs;
+        this.frameSampleIndex = (this.frameSampleIndex + 1) % this.frameSamples.length;
+        this.frameSampleCount = Math.min(this.frameSampleCount + 1, this.frameSamples.length);
+        if (!this.statsAt) {
+            this.statsAt = now;
+            return;
+        }
+        const elapsed = now - this.statsAt;
+        if (elapsed < 1000)
+            return;
+        const sorted = [];
+        for (let i = 0; i < this.frameSampleCount; i++)
+            sorted.push(this.frameSamples[i]);
+        sorted.sort((a, b) => a - b);
+        const p95 = sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
+        const tier = this.quality === "auto" ? "high" : this.quality;
+        this.emit("stats", {
+            fps: this.statsFrames * 1000 / elapsed,
+            frameMs: this.statsFrameTotal / this.statsFrames,
+            p95Ms: p95,
+            drawCalls: this.renderer.info.render.calls,
+            triangles: this.renderer.info.render.triangles,
+            particles: this.engine.activeCount,
+            particlesCap: tier === "low" ? 600 : tier === "medium" ? 1500 : 4000,
+            dpr: this.renderer.getPixelRatio(), renderScale: this.renderScale, tier,
+        });
+        this.statsAt = now;
+        this.statsFrames = 0;
+        this.statsFrameTotal = 0;
     }
     dispose() {
         if (this.disposed || !this.canvas)
@@ -191,8 +257,25 @@ export class ThreeViewport {
         this.transformControls.dispose();
         this.canvas.removeEventListener("pointerdown", this.onViewHelperPointerDown, true);
         this.viewHelper.dispose();
+        this.unbindStats?.();
+        this.unbindStats = null;
+        this.statsElement.remove();
         this.sceneAdapter.dispose();
         this.canvas.remove();
+        this.listeners.emitterMoved.clear();
+        this.listeners.pick.clear();
+        this.listeners.stats.clear();
+        this.listeners.error.clear();
+        this.source = null;
+        this.host = null;
+        this.canvas = null;
+        this.statsElement = null;
+        this.sceneAdapter = null;
+        this.renderer = null;
+        this.camera = null;
+        this.controls = null;
+        this.transformControls = null;
+        this.viewHelper = null;
     }
     emit(event, payload) {
         for (const listener of this.listeners[event])

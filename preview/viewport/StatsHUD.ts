@@ -1,4 +1,4 @@
-import type { ViewportStats } from "./Viewport.js";
+import type { Viewport, ViewportStats } from "./Viewport.js";
 
 /** Updates a lightweight DOM HUD no more than once per second. */
 export class StatsHUD {
@@ -6,8 +6,12 @@ export class StatsHUD {
 
   constructor(private readonly element: HTMLElement) {}
 
+  bind(viewport: Viewport): () => void {
+    return viewport.on("stats", (stats) => this.update(stats, performance.now()));
+  }
+
   update(stats: ViewportStats, nowMs: number): void {
-    if (nowMs - this.lastUpdate < 1000) return;
+    if (this.lastUpdate && nowMs - this.lastUpdate < 1000) return;
     this.lastUpdate = nowMs;
     const cap = stats.particlesCap == null ? "∞" : String(stats.particlesCap);
     this.element.textContent =

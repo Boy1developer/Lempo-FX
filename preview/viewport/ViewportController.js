@@ -17,7 +17,11 @@ export class ViewportController {
         this.accumulator = 0;
         this.dirty = true;
         this.playing = false;
+        this.interactionActive = false;
         this.disposed = false;
+        this.host = null;
+        this.qualityToast = null;
+        this.qualityToastTimer = 0;
         this.onVisibilityChange = () => {
             this.lastTime = 0;
             if (this.doc.visibilityState === "visible")
@@ -54,7 +58,14 @@ export class ViewportController {
                 this.frameHandler({ now, dt: elapsed });
                 this.dirty = false;
             }
-            this.quality.recordFrame(performance.now() - frameStart, elapsed);
+            const previousTier = this.quality.currentTier;
+            if (!this.interactionActive && this.quality.recordFrame(performance.now() - frameStart, elapsed)) {
+                this.viewport?.setQuality(this.quality.currentTier);
+                this.viewport?.setRenderScale(this.quality.scale);
+                const rank = { low: 0, medium: 1, high: 2 };
+                if (rank[this.quality.currentTier] < rank[previousTier])
+                    this.showQualityToast();
+            }
             this.requestIfNeeded();
         };
         doc.addEventListener("visibilitychange", this.onVisibilityChange);
@@ -70,6 +81,7 @@ export class ViewportController {
     setViewport(viewport, element) {
         this.viewport?.dispose();
         this.viewport = viewport;
+        this.host = element;
         viewport.mount(element);
         if (this.playing)
             viewport.play();
@@ -81,11 +93,12 @@ export class ViewportController {
         if (this.mode === mode && this.viewport)
             return;
         const viewport = mode === "3d"
-            ? new ThreeViewport(() => this.invalidate())
-            : new PixiViewport(() => this.invalidate());
+            ? new ThreeViewport(() => this.invalidate(), (active) => this.setInteractionActive(active))
+            : new PixiViewport(() => this.invalidate(), (active) => this.setInteractionActive(active));
         this.setViewport(viewport, element);
         this.mode = mode;
         this.viewport?.setQuality(this.quality.currentTier);
+        this.viewport?.setRenderScale(this.quality.scale);
     }
     setEffect(effect) { this.requireViewport().setEffect(effect); this.invalidate(); }
     patch(ops) { this.requireViewport().patch(ops); this.invalidate(); }
@@ -96,9 +109,11 @@ export class ViewportController {
     }
     setQuality(quality) {
         this.quality.setQuality(quality);
-        this.viewport?.setQuality(quality);
+        this.viewport?.setQuality(quality === "auto" ? this.quality.currentTier : quality);
+        this.viewport?.setRenderScale(this.quality.scale);
         this.invalidate();
     }
+    setInteractionActive(active) { this.interactionActive = active; }
     resize(w, h, dpr) {
         this.viewport?.resize(w, h, dpr);
         this.invalidate();
@@ -114,6 +129,11 @@ export class ViewportController {
             cancelAnimationFrame(this.frameId);
         this.frameId = 0;
         this.doc.removeEventListener("visibilitychange", this.onVisibilityChange);
+        if (this.qualityToastTimer)
+            window.clearTimeout(this.qualityToastTimer);
+        this.qualityToast?.remove();
+        this.qualityToast = null;
+        this.host = null;
         this.viewport?.dispose();
         this.viewport = null;
         this.mode = null;
@@ -129,5 +149,24 @@ export class ViewportController {
         if (!this.playing && !this.dirty)
             return;
         this.frameId = requestAnimationFrame(this.onAnimationFrame);
+    }
+    showQualityToast() {
+        if (!this.host)
+            return;
+        if (!this.qualityToast) {
+            this.qualityToast = this.doc.createElement("div");
+            this.qualityToast.setAttribute("role", "status");
+            this.qualityToast.style.cssText = "position:fixed;right:20px;bottom:20px;z-index:2147483647;padding:7px 10px;border-radius:5px;background:#20232ddd;color:#fff;font:12px sans-serif;pointer-events:none";
+            this.host.appendChild(this.qualityToast);
+        }
+        this.qualityToast.textContent = "Quality lowered for performance";
+        this.qualityToast.hidden = false;
+        if (this.qualityToastTimer)
+            window.clearTimeout(this.qualityToastTimer);
+        this.qualityToastTimer = window.setTimeout(() => {
+            if (this.qualityToast)
+                this.qualityToast.hidden = true;
+            this.qualityToastTimer = 0;
+        }, 2200);
     }
 }
