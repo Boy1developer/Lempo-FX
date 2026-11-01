@@ -196,4 +196,10 @@ against that implementation remains outstanding.
 - The preview build passed after this addition. The 3D foundation is not yet
   mounted by the current preview page or production Dear PyGui editor; subsequent
   Phase 2 tasks must add particle rendering and connect it through the controller.
+- Added `TransformControls` on the emitter object; they attach only for the
+  `move` tool, disable orbit input during a drag, and emit `emitterMoved` with
+  the changed world position. Added the labeled `ViewHelper`; its overlay is
+  rendered on camera changes and while a click-to-axis snap is animating.
+- Transform/view-helper listeners and GPU resources are disposed with the 3D
+  surface. TypeScript checking and esbuild passed after these additions.
 

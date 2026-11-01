@@ -203,7 +203,7 @@ The shared data contract and named constants live in one place: [`contracts/cont
 | `editor/` | Desktop app — Dear PyGui UI (`studio_imgui.py`), Tk fallback and shared logic layer (`particle_studio.py`) |
 | `core/` | C++ simulation core (`particle_core.cpp`) + parity and behavior tests |
 | `render/` | In-editor OpenGL renderer and render tests |
-| `preview/` | Browser fast preview adapters (Three.js / PixiJS / Canvas), shared viewport contracts/controller/services, initial Three.js viewport surface, entry points, and tests |
+| `preview/` | Browser fast preview adapters (Three.js / PixiJS / Canvas), shared viewport contracts/controller/services, Three.js camera/gizmo/view-helper foundation, entry points, and tests |
 | `lempo-runtime/` | Typed effect loader plus the renderer-agnostic TypeScript engine and trail math used by the browser preview; GDevelop retains a separate runtime implementation |
 | `contracts/` | Shared contracts (`contracts.json`) and generated bindings (`gen/`) |
 | `assets/` | App icon and bundled presets (`presets/trails/`) |

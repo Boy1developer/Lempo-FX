@@ -36,7 +36,7 @@ Lempo-FX/
 │   │   ├── StatsHUD.ts / .js              # عرض إحصاءات الأداء بمعدل محدود
 │   │   ├── Transport.ts / .js             # JSON Lines وWebSocket وHTTP polling
 │   │   └── three/
-│   │       └── ThreeViewport.ts / .js     # أساس WebGL والكاميرا وOrbitControls
+│   │       └── ThreeViewport.ts / .js     # WebGL وOrbitControls وTransformControls وViewHelper
 │   ├── preview.html             # قالب صفحة المعاينة
 │   ├── live_bundle.js           # حزمة JavaScript للمعاينة
 │   ├── live_effect.html         # صفحة معاينة مستقلة مضمّنة الموارد

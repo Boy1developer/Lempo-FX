@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
+import { ViewHelper } from "three/addons/helpers/ViewHelper.js";
 /**
  * Renderer/camera foundation for the planned 3D viewport.
  * Particle and editor-guide layers are added in later Phase 2 tasks. This
@@ -12,8 +14,37 @@ export class ThreeViewport {
         this.invalidate = invalidate;
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 10000);
+        this.emitter = new THREE.Object3D();
+        this.listeners = {
+            emitterMoved: new Set(), pick: new Set(), stats: new Set(), error: new Set(),
+        };
         this.resizeObserver = null;
         this.disposed = false;
+        this.viewHelperDirty = true;
+        this.gizmoDragging = false;
+        this.onCameraChange = () => {
+            this.viewHelperDirty = true;
+            this.invalidate();
+        };
+        this.onGizmoDraggingChanged = (event) => {
+            this.gizmoDragging = Boolean(event.value);
+            this.controls.enabled = !this.gizmoDragging;
+        };
+        this.onGizmoObjectChange = () => {
+            if (!this.gizmoDragging)
+                return;
+            const position = this.emitter.position;
+            this.emit("emitterMoved", { x: position.x, y: position.y, z: position.z });
+            this.invalidate();
+        };
+        this.onViewHelperPointerDown = (event) => {
+            if (!this.viewHelper.handleClick(event))
+                return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.viewHelperDirty = true;
+            this.invalidate();
+        };
         this.onResize = () => { this.resize(); };
         const canvas = document.createElement("canvas");
         canvas.className = "lempo-viewport-three";
@@ -39,9 +70,21 @@ export class ThreeViewport {
         this.controls.screenSpacePanning = true;
         this.controls.minDistance = 0.5;
         this.controls.maxDistance = 5000;
-        this.controls.addEventListener("change", this.invalidate);
-        const grid = new THREE.GridHelper(20, 20, 0x54566c, 0x30313d);
-        this.scene.add(grid);
+        this.controls.addEventListener("change", this.onCameraChange);
+        this.transformControls = new TransformControls(this.camera, canvas);
+        this.transformControls.setMode("translate");
+        this.transformControls.getHelper().visible = false;
+        this.scene.add(this.transformControls.getHelper());
+        this.scene.add(this.emitter);
+        this.emitter.visible = false;
+        this.emitter.add(new THREE.AxesHelper(1.5));
+        this.transformControls.addEventListener("dragging-changed", this.onGizmoDraggingChanged);
+        this.transformControls.addEventListener("objectChange", this.onGizmoObjectChange);
+        this.viewHelper = new ViewHelper(this.camera, canvas);
+        this.viewHelper.setLabels("X", "Y", "Z");
+        canvas.addEventListener("pointerdown", this.onViewHelperPointerDown, true);
+        this.grid = new THREE.GridHelper(20, 20, 0x54566c, 0x30313d);
+        this.scene.add(this.grid);
         this.resizeObserver = new ResizeObserver(this.onResize);
         this.resizeObserver.observe(host);
         this.resize();
@@ -59,8 +102,37 @@ export class ThreeViewport {
         this.invalidate();
     }
     render() {
-        if (!this.disposed)
-            this.renderer.render(this.scene, this.camera);
+        if (this.disposed)
+            return;
+        this.renderer.render(this.scene, this.camera);
+        if (this.viewHelperDirty || this.viewHelper.animating) {
+            this.viewHelper.render(this.renderer);
+            this.viewHelperDirty = false;
+        }
+    }
+    /** Advance only the view-helper's camera snap animation, if one is active. */
+    update(dt) {
+        if (this.disposed || !this.viewHelper.animating)
+            return;
+        this.viewHelper.update(dt);
+        this.viewHelperDirty = true;
+        this.invalidate();
+    }
+    setTool(tool) {
+        if (tool === "move") {
+            this.emitter.visible = true;
+            this.transformControls.attach(this.emitter);
+            this.transformControls.getHelper().visible = true;
+        }
+        else {
+            this.emitter.visible = false;
+            this.transformControls.detach();
+            this.transformControls.getHelper().visible = false;
+        }
+        this.invalidate();
+    }
+    on(event, callback) {
+        this.listeners[event].add(callback);
     }
     dispose() {
         if (this.disposed)
@@ -68,8 +140,13 @@ export class ThreeViewport {
         this.disposed = true;
         this.resizeObserver?.disconnect();
         this.resizeObserver = null;
-        this.controls.removeEventListener("change", this.invalidate);
+        this.renderer.domElement.removeEventListener("pointerdown", this.onViewHelperPointerDown, true);
+        this.controls.removeEventListener("change", this.onCameraChange);
         this.controls.dispose();
+        this.transformControls.removeEventListener("dragging-changed", this.onGizmoDraggingChanged);
+        this.transformControls.removeEventListener("objectChange", this.onGizmoObjectChange);
+        this.transformControls.dispose();
+        this.viewHelper.dispose();
         this.scene.traverse((object) => {
             const renderable = object;
             renderable.geometry?.dispose();
@@ -81,5 +158,9 @@ export class ThreeViewport {
         });
         this.renderer.dispose();
         this.renderer.domElement.remove();
+    }
+    emit(event, payload) {
+        for (const listener of this.listeners[event])
+            listener(payload);
     }
 }
