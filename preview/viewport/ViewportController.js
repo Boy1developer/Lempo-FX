@@ -1,4 +1,6 @@
 import { QualityManager } from "./QualityManager.js";
+import { ThreeViewport } from "./three/ThreeViewport.js";
+import { PixiViewport } from "./pixi/PixiViewport.js";
 const MAX_DT = 1 / 20;
 const FIXED_DT = 1 / 60;
 const MAX_STEPS = 3;
@@ -8,6 +10,7 @@ export class ViewportController {
         this.doc = doc;
         this.quality = new QualityManager();
         this.viewport = null;
+        this.mode = null;
         this.frameHandler = null;
         this.frameId = 0;
         this.lastTime = 0;
@@ -29,11 +32,7 @@ export class ViewportController {
             const elapsed = this.lastTime ? Math.min(MAX_DT, Math.max(0, (now - this.lastTime) / 1000)) : 0;
             this.lastTime = now;
             const frameStart = performance.now();
-            if (this.frameHandler) {
-                this.frameHandler({ now, dt: elapsed });
-                this.dirty = false;
-            }
-            else if (this.viewport && (this.playing || this.dirty)) {
+            if (this.viewport && (this.playing || this.dirty)) {
                 if (this.playing) {
                     this.accumulator = Math.min(this.accumulator + elapsed, FIXED_DT * MAX_STEPS);
                     let steps = 0;
@@ -49,6 +48,10 @@ export class ViewportController {
                     this.viewport.update(elapsed);
                 }
                 this.viewport.render();
+                this.dirty = false;
+            }
+            else if (this.frameHandler) {
+                this.frameHandler({ now, dt: elapsed });
                 this.dirty = false;
             }
             this.quality.recordFrame(performance.now() - frameStart, elapsed);
@@ -68,7 +71,21 @@ export class ViewportController {
         this.viewport?.dispose();
         this.viewport = viewport;
         viewport.mount(element);
+        if (this.playing)
+            viewport.play();
+        else
+            viewport.pause();
         this.invalidate();
+    }
+    setMode(mode, element) {
+        if (this.mode === mode && this.viewport)
+            return;
+        const viewport = mode === "3d"
+            ? new ThreeViewport(() => this.invalidate())
+            : new PixiViewport(() => this.invalidate());
+        this.setViewport(viewport, element);
+        this.mode = mode;
+        this.viewport?.setQuality(this.quality.currentTier);
     }
     setEffect(effect) { this.requireViewport().setEffect(effect); this.invalidate(); }
     patch(ops) { this.requireViewport().patch(ops); this.invalidate(); }
@@ -99,6 +116,7 @@ export class ViewportController {
         this.doc.removeEventListener("visibilitychange", this.onVisibilityChange);
         this.viewport?.dispose();
         this.viewport = null;
+        this.mode = null;
     }
     requireViewport() {
         if (!this.viewport)

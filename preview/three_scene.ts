@@ -151,7 +151,9 @@ export class ThreeScene {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
-  private meshes: THREE.InstancedMesh[] = [];
+  private meshes: Array<THREE.InstancedMesh | null> = [];
+  private bucketGeos: THREE.BufferGeometry[] = [];
+  private bucketMats: THREE.Material[] = [];
   private byShape: Record<string, number> = {};
   private solid: boolean[] = [];
   readonly guides: THREE.Group = new THREE.Group();
@@ -162,6 +164,7 @@ export class ThreeScene {
   private tmpColor: THREE.Color = new THREE.Color();
   private lastW = 0;
   private lastH = 0;
+  private particleCap = CAP;
   // reused per-frame instance counters (no per-frame allocation)
   private counts: number[] = [];
   // uploaded-model rendering (custom shape): normalized templates + clone pool
@@ -268,21 +271,9 @@ export class ThreeScene {
           blending: THREE.AdditiveBlending, depthWrite: false,
           side: THREE.DoubleSide,
         });
-      const m = new THREE.InstancedMesh(geos[key], mat, CAP);
-      m.frustumCulled = false;
-      m.castShadow = isSolid;
-      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      const black = new THREE.Color(0, 0, 0);
-      for (let i = 0; i < CAP; i++) {
-        this.dummy.position.set(0, 0, 0);
-        this.dummy.scale.set(0.0001, 0.0001, 0.0001);
-        this.dummy.updateMatrix();
-        m.setMatrixAt(i, this.dummy.matrix);
-        m.setColorAt(i, black);
-      }
-      m.count = 0;
-      this.scene.add(m);
-      this.meshes.push(m);
+      this.meshes.push(null);
+      this.bucketGeos.push(geos[key]);
+      this.bucketMats.push(mat);
       this.solid.push(isSolid);
       this.byShape[key] = idx;
     });
@@ -469,7 +460,7 @@ export class ThreeScene {
       }
       m.needsUpdate = true;
     };
-    for (const im of this.meshes) apply(im.material as THREE.Material);
+    for (const material of this.bucketMats) apply(material);
     for (const p of this.modelPool) for (const e of p.mats) apply(e.m);
     apply(this.ribbonMat);
   }
@@ -633,6 +624,16 @@ export class ThreeScene {
     const mi: number = this.byShape[key];
     const slot: number = counts[mi]++;
     if (slot >= CAP) return;
+    let mesh = this.meshes[mi];
+    if (!mesh) {
+      mesh = new THREE.InstancedMesh(this.bucketGeos[mi], this.bucketMats[mi], CAP);
+      mesh.frustumCulled = false;
+      mesh.castShadow = this.solid[mi];
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.count = 0;
+      this.scene.add(mesh);
+      this.meshes[mi] = mesh;
+    }
     const s: number = Math.max(0.01, size);
     this.dummy.position.set(x, y, z);
     if (this.flat.has(key)) {
@@ -642,11 +643,11 @@ export class ThreeScene {
     }
     this.dummy.scale.set(s, s, s);
     this.dummy.updateMatrix();
-    this.meshes[mi].setMatrixAt(slot, this.dummy.matrix);
+    mesh.setMatrixAt(slot, this.dummy.matrix);
     // additive blending: bake alpha into RGB (matches 2D preview look)
     this.tmpColor.setRGB(
       (r / 255) * alpha, (g / 255) * alpha, (b / 255) * alpha);
-    this.meshes[mi].setColorAt(slot, this.tmpColor);
+    mesh.setColorAt(slot, this.tmpColor);
   }
 
   render(): void {
@@ -689,7 +690,7 @@ export class ThreeScene {
     const hideDots: boolean = this.engine.trailsHideDots();
     if (!hideDots) {
       const frame = this.engine.writeFrame();
-      const n: number = frame.count;
+      const n: number = Math.min(frame.count, this.particleCap);
       for (let i = 0; i < n; i++) {
         const p = i * 3;
         const x = frame.position[p], y = frame.position[p + 1], z = frame.position[p + 2];
@@ -711,11 +712,13 @@ export class ThreeScene {
       }
     }
     for (let m = 0; m < this.meshes.length; m++) {
-      this.meshes[m].count = counts[m];
+      const mesh = this.meshes[m];
+      if (!mesh) continue;
+      mesh.count = counts[m];
       // empty buckets cost no draw call (guides/floor are separate objects)
-      this.meshes[m].visible = counts[m] > 0;
-      this.meshes[m].instanceMatrix.needsUpdate = true;
-      const ic = this.meshes[m].instanceColor;
+      mesh.visible = counts[m] > 0;
+      mesh.instanceMatrix.needsUpdate = true;
+      const ic = mesh.instanceColor;
       if (ic) ic.needsUpdate = true;
     }
     for (const p of this.modelPool) {
@@ -743,12 +746,22 @@ export class ThreeScene {
 
   setExternalCamera(enabled: boolean): void { this.externalCamera = enabled; }
 
+  setQuality(maxDpr: number, particleCap: number): void {
+    this.particleCap = Math.max(1, Math.min(CAP, Math.floor(particleCap)));
+    this.renderer.setPixelRatio(Math.min(2, Math.max(0.5, maxDpr), window.devicePixelRatio || 1));
+  }
+
   setView(opts: { grid?: boolean; guides?: boolean }): void {
     if (opts.grid !== undefined) this.grid.visible = opts.grid;
     if (opts.guides !== undefined) this.guides.visible = opts.guides;
   }
 
   dispose(): void {
+    for (let i = 0; i < this.meshes.length; i++) {
+      if (this.meshes[i]) continue;
+      this.bucketGeos[i].dispose();
+      this.bucketMats[i].dispose();
+    }
     this.scene.traverse((object) => {
       const drawable = object as THREE.Mesh;
       drawable.geometry?.dispose();

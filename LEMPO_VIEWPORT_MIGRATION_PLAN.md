@@ -247,6 +247,8 @@ Every message: `{ "type": string, "seq": number, ...payload }`. `seq` is monoton
 
 **Acceptance:** both viewports pass `Viewport` contract tests (mount → setEffect → patch → dispose, 100 cycles, no resource growth — see §7.9); 2D↔3D switching works; blend-mode fallbacks warn exactly once; stats HUD works.
 
+> **Implementation status (2026-11-01):** both adapters and controller switching are implemented. Automated Node checks cover controller lifecycle for 100 mode replacements, engine/guide/model/blend regressions, and HUD formatting. Actual Three.js/Pixi GPU resource-growth and visual-parity acceptance still requires running the adapters in a real browser; the lifecycle fake test does not measure WebGL resource growth. Editor-to-host integration is Phase 3.
+
 ### Phase 3 — Bridge (Python side)
 
 **Tasks**

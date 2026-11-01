@@ -1,6 +1,6 @@
 # بنية مشروع Lempo Particle Editor
 
-> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ نقل الـviewport الإنتاجي إلى WebView لم يُنفّذ بعد. Phase 0 وPhase 1 من خطة الترحيل مكتملتان، وبدأ تأسيس عقود Phase 2 وحلقة الرسم المشتركة لمعاينة المتصفح.
+> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ محوّلات الـviewport الجديدة 2D/3D موجودة في معاينة المتصفح، لكن ربطها بواجهة المحرر عبر WebView (Phase 3) لم يُنفّذ بعد. Phase 2 من خطة ترحيل الـviewport مكتملة من ناحية التنفيذ، مع بقاء فحص موارد WebGL والتطابق البصري داخل متصفح فعلي.
 
 ## 1) شجرة المشروع
 
@@ -35,6 +35,8 @@ Lempo-FX/
 │   │   ├── QualityManager.ts / .js       # درجات الجودة ومقياس الرسم التكيفي
 │   │   ├── StatsHUD.ts / .js              # عرض إحصاءات الأداء بمعدل محدود
 │   │   ├── Transport.ts / .js             # JSON Lines وWebSocket وHTTP polling
+│   │   ├── pixi/
+│   │   │   └── PixiViewport.ts / .js       # Pixi ParticleContainer، تحريك/تكبير، gizmo وtrails
 │   │   └── three/
 │   │       └── ThreeViewport.ts / .js     # WebGL وOrbitControls وTransformControls وViewHelper
 │   ├── preview.html             # قالب صفحة المعاينة
@@ -83,7 +85,7 @@ Lempo-FX/
 | `editor/particle_studio.py` | القيم الافتراضية والقوالب والتحقق ومحاكاة Python، والمنطق الذي تستخدمه واجهة Tk الاحتياطية. |
 | `editor/raster_view.py` و`render/gl_view.py` | يقدّمان مسار raster اختياريًا: GLFW/OpenGL يرسم خارج الشاشة ثم تُرفع صورة إلى DPG. يبقى رسم الخلفيات والأدلة والتفاعل في طبقة DPG. عند تعذر المسار أو عدم انطباقه يستمر الرسم بالـdrawlist. |
 | `core/particle_core.cpp` | تنفيذ C++ اختياري لمحاكاة الجسيمات. يستخدمه المحرر متى توفرت الوحدة الأصلية؛ توجد محاكاة Python كمسار احتياطي. |
-| `preview/` | معاينة المتصفح مع محوّلات Three.js وPixiJS وCanvas. `preview.ts` يعيد تصدير محرك المحاكاة من `lempo-runtime`، والمحرك يسلّم بيانات الجسيمات عبر typed arrays معاد استخدامها؛ `canvas_renderer.ts` يعزل fallback الرسم على Canvas. `viewport/` يضم العقود والمتحكم ومدير الجودة وHUD النقل. `ThreeViewport` يربط العقد بمشهد Three.js الموجود (الجسيمات والموديلات وtrails وأدلة المنطقة/المخروط) ويستخدم Orbit/TransformControls وViewHelper. ما زال ربط الـviewport الجديد بواجهة المحرر وPixi adapter قيد التنفيذ. Pixi ticker متوقف في المعاينة القديمة والرسم اليدوي يتم من الحلقة المشتركة. صفحة `live_effect.html` مجمعة دون جلب مكتبات عبر الشبكة؛ المحرر يحدّث `last_effect.json` لمزامنة المعاينة. |
+| `preview/` | معاينة المتصفح مع محوّلات Three.js وPixiJS وCanvas. `preview.ts` يعيد تصدير محرك المحاكاة من `lempo-runtime`، والمحرك يسلّم بيانات الجسيمات عبر typed arrays معاد استخدامها؛ `canvas_renderer.ts` يعزل fallback الرسم على Canvas. `viewport/` يضم العقد والمتحكم ومدير الجودة وHUD ووسائط النقل، إضافة إلى محوّلي `ThreeViewport` و`PixiViewport`. محوّل Three.js يستخدم Orbit/TransformControls وViewHelper وInstancedMesh buckets كسولة ومخازن trails معاد استخدامها. محوّل Pixi يستخدم `ParticleContainer` لكل شكل، pan/zoom وgizmo وquad meshes ديناميكية للـtrails. `ViewportController` يملك حلقة الرسم الواحدة ويبدل المحوّلات. صفحة `live_effect.html` مجمعة دون جلب مكتبات عبر الشبكة؛ المحرر يحدّث `last_effect.json` لمزامنة المعاينة. لا يزال توصيل المحوّلات الجديدة بواجهة Dear PyGui ضمن Phase 3.
 | `AdvancedParticleEmitter.json` | تنفيذ الإكستنشن داخل GDevelop، ويستهلك التأثيرات المصدرة. يتطلب الإصدار الحالي GDevelop 5.6.284 أو أحدث لعرض 3D بالمقياس الصحيح. |
 | `lempo-runtime/` | مصدر TypeScript مشترك: تحميل/تحقق التأثير، محرك المحاكاة النقي `src/engine.ts`، وحسابات trails النقية `src/trails.ts`. لا يعتمد المحرك على Three.js أو PixiJS؛ الإكستنشن داخل GDevelop ما زال تنفيذًا منفصلًا ولم تكتمل مطابقته. |
 | `contracts/` | تعريف مشترك لشكل سجل الجسيمات والأشكال ونسخة التصدير وقيم easing وblend modes؛ الملفات داخل `contracts/gen/` مولّدة. |

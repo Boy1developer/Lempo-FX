@@ -102,46 +102,103 @@ export class PixiScene {
         this.canvas = canvas;
         this.engine = engine;
         this.app = new PIXI.Application();
-        this.pool = [];
+        this.particleBuckets = new Map();
+        this.particlesByShape = new Map();
+        this.trailMeshes = [];
+        this.trailPositions = [];
+        this.trailDynamic = false;
         this.tex = {};
         this.customTex = new Map();
-        this.prevN = 0;
         this.lastW = 0;
         this.lastH = 0;
         this.blend = "";
+        this.warnedLighten = false;
+        this.maxDpr = 2;
+        this.particleCap = POOL;
         this.ready = false;
     }
-    async init() {
+    async init(options = {}) {
+        this.maxDpr = options.maxDpr ?? 2;
+        this.trailDynamic = options.dynamicTrails ?? false;
         await this.app.init({
             canvas: this.canvas,
             background: "#14151c",
-            antialias: true,
+            antialias: options.antialias ?? true,
             autoStart: false,
+            autoDensity: true,
+            resolution: Math.min(options.maxDpr ?? 1, window.devicePixelRatio || 1),
+            powerPreference: "high-performance",
+            roundPixels: true,
         });
         this.app.ticker.stop();
+        this.world = new PIXI.Container();
+        this.app.stage.addChild(this.world);
         this.tex = buildTextures();
         this.grid = new PIXI.Graphics();
-        this.app.stage.addChild(this.grid);
-        this.layer = new PIXI.Container();
-        this.layer.blendMode = "add";
-        this.app.stage.addChild(this.layer);
-        for (let i = 0; i < POOL; i++) {
-            const sp = new PIXI.Sprite(this.tex["circle"]);
-            sp.anchor.set(0.5);
-            sp.visible = false;
-            this.layer.addChild(sp);
-            this.pool.push(sp);
-        }
+        this.world.addChild(this.grid);
+        this.particleLayer = new PIXI.Container();
+        this.world.addChild(this.particleLayer);
         this.trails = new PIXI.Graphics();
-        this.layer.addChild(this.trails);
+        this.trails.visible = !this.trailDynamic;
+        this.world.addChild(this.trails);
+        if (this.trailDynamic)
+            this.createTrailMeshes();
         this.gizmo = new PIXI.Graphics();
-        this.app.stage.addChild(this.gizmo);
+        this.world.addChild(this.gizmo);
         this.ready = true;
     }
     /** Render from the viewport's shared animation-frame loop. */
     render() {
         if (this.ready)
             this.app.renderer.render({ container: this.app.stage });
+    }
+    setTransform(x, y, zoom) {
+        if (!this.ready)
+            return;
+        this.world.position.set(x, y);
+        this.world.scale.set(zoom);
+    }
+    setView(options) {
+        if (options.grid !== undefined)
+            this.grid.visible = options.grid;
+        if (options.guides !== undefined)
+            this.gizmo.visible = options.guides;
+    }
+    setQuality(maxDpr, particleCap = POOL) {
+        this.maxDpr = Math.max(0.5, Math.min(2, maxDpr));
+        this.particleCap = Math.max(1, Math.min(POOL, Math.floor(particleCap)));
+        if (this.ready)
+            this.app.renderer.resolution = Math.min(this.maxDpr, window.devicePixelRatio || 1);
+    }
+    resize(width, height, dpr = window.devicePixelRatio || 1) {
+        if (!this.ready)
+            return;
+        this.app.renderer.resolution = Math.min(this.maxDpr, dpr);
+        this.app.renderer.resize(Math.max(1, width), Math.max(1, height));
+        this.lastW = Math.max(1, width);
+        this.lastH = Math.max(1, height);
+        this.drawGrid(this.lastW, this.lastH);
+    }
+    destroy() {
+        if (!this.ready)
+            return;
+        this.app.ticker.stop();
+        for (const bucket of this.particleBuckets.values())
+            bucket.destroy({ children: true });
+        this.particleBuckets.clear();
+        this.particlesByShape.clear();
+        for (const mesh of this.trailMeshes)
+            mesh.destroy({ children: true });
+        this.trailMeshes = [];
+        this.trailPositions = [];
+        for (const texture of this.customTex.values())
+            texture.destroy(true);
+        this.customTex.clear();
+        for (const texture of Object.values(this.tex))
+            texture.destroy(true);
+        this.tex = {};
+        this.ready = false;
+        this.app.destroy({ removeView: false }, { children: true });
     }
     normShape(shape) {
         const s = String(shape ?? "circle").toLowerCase();
@@ -175,7 +232,12 @@ export class PixiScene {
             case "Subtractive": return "erase";
             case "Screen": return "screen";
             case "Overlay": return "overlay";
-            case "Lighten": return "normal";
+            case "Lighten":
+                if (!this.warnedLighten) {
+                    this.warnedLighten = true;
+                    console.warn("[Lempo viewport] PixiJS Lighten blending is unsupported; using Normal.");
+                }
+                return "normal";
             default: return "normal";
         }
     }
@@ -198,6 +260,62 @@ export class PixiScene {
             g.lineTo(ccx + (i * W) / 14, H);
         }
         g.stroke();
+    }
+    createTrailMeshes() {
+        const indices = new Uint32Array((TRAIL_ST - 1) * 6);
+        const uvs = new Float32Array(TRAIL_ST * 4);
+        for (let i = 0; i < TRAIL_ST; i++) {
+            uvs[i * 4] = i / (TRAIL_ST - 1);
+            uvs[i * 4 + 1] = 0;
+            uvs[i * 4 + 2] = i / (TRAIL_ST - 1);
+            uvs[i * 4 + 3] = 1;
+            if (i === TRAIL_ST - 1)
+                continue;
+            const k = i * 6, v = i * 2;
+            indices.set([v, v + 1, v + 2, v + 1, v + 3, v + 2], k);
+        }
+        for (let i = 0; i < TRAIL_CAP; i++) {
+            const positions = new Float32Array(TRAIL_ST * 4);
+            const geometry = new PIXI.MeshGeometry({ positions, uvs, indices });
+            const mesh = new PIXI.Mesh({ geometry, texture: PIXI.Texture.WHITE });
+            mesh.tint = 0xffffff;
+            mesh.alpha = 0;
+            mesh.blendMode = "add";
+            this.trailMeshes.push(mesh);
+            this.trailPositions.push(positions);
+            this.world.addChild(mesh);
+        }
+    }
+    syncTrailMesh(mesh, positions, pts, cfg, wlut, grad) {
+        const ids = strideIndices(pts.length, TRAIL_ST - 1);
+        if (ids.length < 2) {
+            mesh.alpha = 0;
+            return;
+        }
+        let r = 0, g = 0, b = 0, samples = 0;
+        for (let i = 0; i < TRAIL_ST; i++) {
+            const t = i / (TRAIL_ST - 1);
+            const pt = pts[ids[Math.min(i, ids.length - 1)]];
+            const prev = pts[ids[Math.max(0, Math.min(i, ids.length - 1) - 1)]];
+            const next = pts[ids[Math.min(ids.length - 1, i + 1)]];
+            const dx = next.x - prev.x, dy = next.y - prev.y;
+            const length = Math.hypot(dx, dy) || 1;
+            const half = Math.max(0.5, flooredWidth(t, cfg, wlut) / 2);
+            const nx = -dy / length * half, ny = dx / length * half;
+            const j = i * 4;
+            positions[j] = pt.x + nx;
+            positions[j + 1] = pt.y + ny;
+            positions[j + 2] = pt.x - nx;
+            positions[j + 3] = pt.y - ny;
+            const [cr, cg, cb] = lutColor(grad, t);
+            r += cr;
+            g += cg;
+            b += cb;
+            samples++;
+        }
+        mesh.geometry.getBuffer("aPosition").update();
+        mesh.tint = (Math.round(r / samples) << 16) | (Math.round(g / samples) << 8) | Math.round(b / samples);
+        mesh.alpha = Math.max(0, Math.min(1, cfg.intensity));
     }
     /** One ribbon as flat quads (glow + outer + core per segment). */
     drawRibbon(g, pts, cfg, wlut, grad, now, key) {
@@ -285,69 +403,108 @@ export class PixiScene {
         if (W !== this.lastW || H !== this.lastH) {
             this.lastW = W;
             this.lastH = H;
-            const dpr = Math.min(2, window.devicePixelRatio || 1);
+            const dpr = Math.min(this.maxDpr, window.devicePixelRatio || 1);
             this.app.renderer.resolution = dpr;
             this.app.renderer.resize(W, H);
             this.drawGrid(W, H);
         }
         const frame = this.engine.writeFrame();
-        const n = Math.min(frame.count, POOL);
+        const n = Math.min(frame.count, POOL, this.particleCap);
         const wantBlend = this.pixiBlend(this.engine.blendingMode());
         if (wantBlend !== this.blend) {
             this.blend = wantBlend;
-            this.layer.blendMode = wantBlend;
+            for (const bucket of this.particleBuckets.values())
+                bucket.blendMode = wantBlend;
         }
         const hideDots = this.engine.trailsHideDots();
-        // margin cull: fully off-screen sprites stay invisible (no fill cost)
+        const grouped = new Map();
+        const textures = new Map();
+        // One lazily grown ParticleContainer per shape keeps texture state shared
+        // within a batch while the total live particle capacity stays bounded.
         const M = 96;
         for (let i = 0; i < n; i++) {
-            const sp = this.pool[i];
-            if (hideDots) {
-                sp.visible = false;
+            if (hideDots)
                 continue;
-            }
             const p = i * 3;
             const x = frame.position[p], y = frame.position[p + 1];
-            const age = frame.age[i];
             if (x < -M || y < -M || x > W + M || y > H + M) {
-                sp.visible = false;
                 continue;
             }
-            const shape = SHAPE_ORDER[frame.shape[i]];
-            const size = frame.size[i];
-            // Custom-shape particles use the imported image texture; fallback to baked shape.
-            let tex = this.tex[this.normShape(shape)];
-            if (shape === "custom") {
-                const ref = this.engine.customRefAt(age);
-                if (ref) {
-                    const ct = this.customTextureFor(ref);
-                    if (ct)
-                        tex = ct;
-                }
-            }
-            sp.texture = tex;
-            sp.position.set(x, y);
-            const s = Math.max(0.5, size / TEX_R);
-            sp.scale.set(s);
-            sp.tint = (frame.color[p] << 16) | (frame.color[p + 1] << 8) | frame.color[p + 2];
-            sp.alpha = frame.alpha[i];
-            sp.visible = true;
+            const shape = this.normShape(SHAPE_ORDER[frame.shape[i]]);
+            const ref = shape === "custom" ? this.engine.customRefAt(frame.age[i]) : null;
+            const texture = ref ? this.customTextureFor(ref) : null;
+            const bucketKey = texture && ref ? `custom:${ref}` : shape;
+            const entries = grouped.get(bucketKey) ?? [];
+            textures.set(bucketKey, texture ?? this.tex[shape]);
+            const color = ((Math.max(0, Math.min(255, Math.round(frame.alpha[i] * 255))) << 24) |
+                (frame.color[p] << 16) | (frame.color[p + 1] << 8) | frame.color[p + 2]) >>> 0;
+            entries.push({ x, y, size: Math.max(0.5, frame.size[i] / TEX_R), color });
+            grouped.set(bucketKey, entries);
         }
-        for (let i = n; i < this.prevN; i++)
-            this.pool[i].visible = false;
-        this.prevN = n;
+        for (const [shape, entries] of grouped) {
+            let bucket = this.particleBuckets.get(shape);
+            let particles = this.particlesByShape.get(shape);
+            if (!bucket || !particles) {
+                bucket = new PIXI.ParticleContainer({
+                    texture: textures.get(shape),
+                    dynamicProperties: { position: true, vertex: true, color: true, rotation: false, uvs: false },
+                    roundPixels: true,
+                });
+                bucket.blendMode = wantBlend;
+                particles = [];
+                this.particleBuckets.set(shape, bucket);
+                this.particlesByShape.set(shape, particles);
+                this.particleLayer.addChild(bucket);
+            }
+            while (particles.length < entries.length) {
+                const particle = new PIXI.Particle({ texture: textures.get(shape), anchorX: 0.5, anchorY: 0.5 });
+                particles.push(particle);
+                bucket.addParticle(particle);
+            }
+            for (let i = 0; i < particles.length; i++) {
+                const particle = particles[i];
+                const entry = entries[i];
+                if (!entry) {
+                    particle.scaleX = 0;
+                    particle.scaleY = 0;
+                    continue;
+                }
+                particle.x = entry.x;
+                particle.y = entry.y;
+                particle.scaleX = entry.size;
+                particle.scaleY = entry.size;
+                particle.color = entry.color;
+            }
+        }
+        for (const [shape, particles] of this.particlesByShape) {
+            if (!grouped.has(shape))
+                for (const particle of particles) {
+                    particle.scaleX = 0;
+                    particle.scaleY = 0;
+                }
+        }
         // ribbons (cleared + redrawn every frame; hidden without a block)
         const gz0 = this.trails;
-        gz0.clear();
+        if (!this.trailDynamic)
+            gz0.clear();
         const tf = this.engine.trailFrame();
         if (tf) {
             const list = tf.trails;
             const use = Math.min(list.length, TRAIL_CAP);
             for (let r = 0; r < use; r++) {
                 const tr = list[r];
-                this.drawRibbon(gz0, tr.pts, tf.cfg, tf.wlut, tf.grad, tf.now, tr.key);
+                if (this.trailDynamic)
+                    this.syncTrailMesh(this.trailMeshes[r], this.trailPositions[r], tr.pts, tf.cfg, tf.wlut, tf.grad);
+                else
+                    this.drawRibbon(gz0, tr.pts, tf.cfg, tf.wlut, tf.grad, tf.now, tr.key);
             }
+            if (this.trailDynamic)
+                for (let r = use; r < TRAIL_CAP; r++)
+                    this.trailMeshes[r].alpha = 0;
         }
+        else if (this.trailDynamic)
+            for (const mesh of this.trailMeshes)
+                mesh.alpha = 0;
         // emitter gizmo (X red / Y blue)
         const gz = this.gizmo;
         gz.clear();

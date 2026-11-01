@@ -1,5 +1,7 @@
 import { QualityManager, type Quality } from "./QualityManager.js";
-import type { EffectJSON, PatchOp, Tier, Tool, Viewport } from "./Viewport.js";
+import { ThreeViewport } from "./three/ThreeViewport.js";
+import { PixiViewport } from "./pixi/PixiViewport.js";
+import type { EffectJSON, Mode, PatchOp, Tier, Tool, Viewport } from "./Viewport.js";
 
 const MAX_DT = 1 / 20;
 const FIXED_DT = 1 / 60;
@@ -12,6 +14,7 @@ export type FrameHandler = (context: FrameContext) => void;
 export class ViewportController {
   readonly quality = new QualityManager();
   private viewport: Viewport | null = null;
+  private mode: Mode | null = null;
   private frameHandler: FrameHandler | null = null;
   private frameId = 0;
   private lastTime = 0;
@@ -35,7 +38,18 @@ export class ViewportController {
     this.viewport?.dispose();
     this.viewport = viewport;
     viewport.mount(element);
+    if (this.playing) viewport.play(); else viewport.pause();
     this.invalidate();
+  }
+
+  setMode(mode: Mode, element: HTMLElement): void {
+    if (this.mode === mode && this.viewport) return;
+    const viewport: Viewport = mode === "3d"
+      ? new ThreeViewport(() => this.invalidate())
+      : new PixiViewport(() => this.invalidate());
+    this.setViewport(viewport, element);
+    this.mode = mode;
+    this.viewport?.setQuality(this.quality.currentTier);
   }
 
   setEffect(effect: EffectJSON): void { this.requireViewport().setEffect(effect); this.invalidate(); }
@@ -67,6 +81,7 @@ export class ViewportController {
     this.doc.removeEventListener("visibilitychange", this.onVisibilityChange);
     this.viewport?.dispose();
     this.viewport = null;
+    this.mode = null;
   }
 
   private requireViewport(): Viewport {
@@ -91,10 +106,7 @@ export class ViewportController {
     const elapsed = this.lastTime ? Math.min(MAX_DT, Math.max(0, (now - this.lastTime) / 1000)) : 0;
     this.lastTime = now;
     const frameStart = performance.now();
-    if (this.frameHandler) {
-      this.frameHandler({ now, dt: elapsed });
-      this.dirty = false;
-    } else if (this.viewport && (this.playing || this.dirty)) {
+    if (this.viewport && (this.playing || this.dirty)) {
       if (this.playing) {
         this.accumulator = Math.min(this.accumulator + elapsed, FIXED_DT * MAX_STEPS);
         let steps = 0;
@@ -109,6 +121,9 @@ export class ViewportController {
         this.viewport.update(elapsed);
       }
       this.viewport.render();
+      this.dirty = false;
+    } else if (this.frameHandler) {
+      this.frameHandler({ now, dt: elapsed });
       this.dirty = false;
     }
     this.quality.recordFrame(performance.now() - frameStart, elapsed);

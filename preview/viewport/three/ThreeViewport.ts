@@ -155,7 +155,8 @@ export class ThreeViewport implements Viewport {
   setQuality(quality: Tier | "auto"): void {
     this.quality = quality;
     const cap = quality === "low" ? 1 : quality === "medium" ? 1.5 : 2;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+    const particleCap = quality === "low" ? 600 : quality === "medium" ? 1500 : 4000;
+    this.sceneAdapter.setQuality(cap, particleCap);
     this.resize();
   }
 
