@@ -286,3 +286,9 @@ Rebuild after 2D zoom fix: REBUILD_OK 26.4 MB smoke True.
 - **Task 3 — view helper:** added Three.js `ViewHelper` in the viewport corner with X/Y/Z labels and click-to-snap camera orientation. It is rendered only after a camera change or during its snap animation; camera controls mark it dirty, and the snap animation invalidates the shared controller loop until complete.
 - **Lifecycle:** disposal now removes the pointer handler and disposes TransformControls and ViewHelper resources alongside the renderer/camera controls.
 - **Scope / verification:** the class remains a renderer foundation, not yet a full `Viewport` implementation or production integration. `python tools/build_preview.py` passed TypeScript checking and esbuild bundling; `git diff --check` passed. No tests or application rebuild were run.
+
+## Viewport migration — Phase 2, 3D task 4 + scene adapter (2026-11-01, main)
+- Reused the existing `ThreeScene` particle renderer through `ThreeViewport`, so the new contract adapter now drives `ParticleEngine` effect load/update, instanced particle rendering, model pools, trails, and the existing effect-specific zone/cone guide builder.
+- Exposed camera/renderer and added external-camera mode so `OrbitControls` no longer gets overwritten by the legacy fast-preview camera transform. The 3D adapter now implements the full `Viewport` lifecycle, JSON Pointer patching, transport controls, resize, view/guides visibility, and `emitterMoved` events.
+- Grid and zone/cone guide geometry are created once per scene/effect revision and toggled through `setView`; Three.js Overlay now falls back to Normal with a single warning per scene.
+- `python tools/build_preview.py` passed TypeScript checking and esbuild bundling; `git diff --check` passed. Pixi implementation and Phase 2 contract/lifecycle acceptance tests remain outstanding; no test suites or app rebuild were run for this increment.

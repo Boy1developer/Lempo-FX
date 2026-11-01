@@ -202,4 +202,13 @@ against that implementation remains outstanding.
   rendered on camera changes and while a click-to-axis snap is animating.
 - Transform/view-helper listeners and GPU resources are disposed with the 3D
   surface. TypeScript checking and esbuild passed after these additions.
+- `ThreeViewport` now adapts the existing `ParticleEngine` + `ThreeScene`, rather
+  than duplicating particle rendering: it exposes setEffect/patch/update/render,
+  transport controls, view visibility, resize, and emitterMoved. ThreeScene
+  supports an external camera, keeps its current per-shape InstancedMesh/model/
+  trail renderers, and rebuilds zone/cone guides only on effect revision changes.
+- `setView` toggles the scene's persistent GridHelper and guide group. Unsupported
+  Three.js Overlay blending falls back to Normal with one warning per scene.
+- Build check: `python tools/build_preview.py` passed. Phase 2's Pixi viewport
+  adapter, quality profile application, and contract/lifecycle tests remain.
 

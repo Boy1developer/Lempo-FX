@@ -150,7 +150,7 @@ function circleLine(r, axis, seg = 48) {
     return new THREE.BufferGeometry().setFromPoints(pts);
 }
 export class ThreeScene {
-    constructor(canvas, engine) {
+    constructor(canvas, engine, options = {}) {
         this.canvas = canvas;
         this.engine = engine;
         this.scene = new THREE.Scene();
@@ -158,6 +158,7 @@ export class ThreeScene {
         this.byShape = {};
         this.solid = [];
         this.guides = new THREE.Group();
+        this.externalCamera = false;
         this.guideRev = -1;
         this.dummy = new THREE.Object3D();
         this.tmpColor = new THREE.Color();
@@ -171,18 +172,30 @@ export class ThreeScene {
         this.modelPool = [];
         this.modelRev = -1;
         this.blendMode = "";
+        this.warnedBlendFallbacks = new Set();
         this.blendRev = -1;
         // ribbon strips (trails): pooled 5-wide cross-section meshes sharing one
         // vertex-colored material; hidden when the effect has no trails block
         this.ribbons = [];
         // flat shapes billboard toward the camera; solids tumble slowly with age
         this.flat = new Set(["square", "billboard", "triangle", "star", "line", "circle", "custom"]);
-        this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-        this.renderer.setClearColor(0x000000, 0); // CSS gradient shows through
-        this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        const renderOptions = {
+            antialias: options.antialias ?? true,
+            alpha: options.alpha ?? true,
+            maxDpr: options.maxDpr ?? 2,
+            shadows: options.shadows ?? true,
+            toneMapping: options.toneMapping ?? THREE.ACESFilmicToneMapping,
+        };
+        this.renderer = new THREE.WebGLRenderer({
+            canvas, antialias: renderOptions.antialias, alpha: renderOptions.alpha,
+            stencil: false, depth: true, powerPreference: "high-performance",
+            preserveDrawingBuffer: false,
+        });
+        this.renderer.setClearColor(0x000000, renderOptions.alpha ? 0 : 1);
+        this.renderer.setPixelRatio(Math.min(renderOptions.maxDpr, window.devicePixelRatio || 1));
+        this.renderer.toneMapping = renderOptions.toneMapping;
         this.renderer.toneMappingExposure = 1.1;
-        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.enabled = renderOptions.shadows;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.camera = new THREE.PerspectiveCamera(60, 1, 1, 6000);
         this.scene.fog = new THREE.Fog(0x101218, 900, 2400);
@@ -208,8 +221,8 @@ export class ThreeScene {
         floor.position.y = -0.5;
         floor.receiveShadow = true;
         this.scene.add(floor);
-        const grid = new THREE.GridHelper(520, 10, 0x3a3d55, 0x2c2e44);
-        this.scene.add(grid);
+        this.grid = new THREE.GridHelper(520, 10, 0x3a3d55, 0x2c2e44);
+        this.scene.add(this.grid);
         this.scene.add(new THREE.AxesHelper(70));
         const dot = new THREE.Mesh(new THREE.SphereGeometry(4, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffffff }));
         this.scene.add(dot);
@@ -435,6 +448,10 @@ export class ThreeScene {
         else if (mode === "Lighten") {
             blending = THREE.CustomBlending;
             equation = THREE.MaxEquation;
+        }
+        else if (mode === "Overlay" && !this.warnedBlendFallbacks.has(mode)) {
+            this.warnedBlendFallbacks.add(mode);
+            console.warn("[Lempo viewport] Three.js Overlay blending is unsupported; using Normal.");
         }
         const apply = (m) => {
             m.blending = blending;
@@ -665,12 +682,15 @@ export class ThreeScene {
         }
         for (const p of this.modelPool)
             p.used = false;
-        // orbit camera from the shared engine.cam state
-        const cam = this.engine.cam;
-        const d = BASE_DIST / Math.max(0.3, cam.zoom);
-        const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
-        this.camera.position.set(d * cp * Math.sin(cam.yaw), d * sp, d * cp * Math.cos(cam.yaw));
-        this.camera.lookAt(0, 0, 0);
+        // Fast preview keeps its legacy engine.cam orbit. The viewport adapter
+        // opts into external OrbitControls without replacing the particle renderer.
+        if (!this.externalCamera) {
+            const cam = this.engine.cam;
+            const d = BASE_DIST / Math.max(0.3, cam.zoom);
+            const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+            this.camera.position.set(d * cp * Math.sin(cam.yaw), d * sp, d * cp * Math.cos(cam.yaw));
+            this.camera.lookAt(0, 0, 0);
+        }
         const counts = this.counts.length === this.meshes.length
             ? (this.counts.fill(0), this.counts)
             : (this.counts = new Array(this.meshes.length).fill(0));
@@ -729,5 +749,34 @@ export class ThreeScene {
                 this.ribbons[r].visible = false;
         }
         this.renderer.render(this.scene, this.camera);
+    }
+    setExternalCamera(enabled) { this.externalCamera = enabled; }
+    setView(opts) {
+        if (opts.grid !== undefined)
+            this.grid.visible = opts.grid;
+        if (opts.guides !== undefined)
+            this.guides.visible = opts.guides;
+    }
+    dispose() {
+        this.scene.traverse((object) => {
+            const drawable = object;
+            drawable.geometry?.dispose();
+            const materials = drawable.material;
+            if (Array.isArray(materials))
+                materials.forEach((material) => material.dispose());
+            else
+                materials?.dispose();
+        });
+        for (const entry of this.modelCache.values()) {
+            entry.traverse((object) => {
+                const mesh = object;
+                mesh.geometry?.dispose();
+                if (Array.isArray(mesh.material))
+                    mesh.material.forEach((material) => material.dispose());
+                else
+                    mesh.material?.dispose();
+            });
+        }
+        this.renderer.dispose();
     }
 }

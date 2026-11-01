@@ -22,6 +22,13 @@ const BASE_DIST = 560;
 // ([glow, edge, core, edge, glow] -> glow + outer + core in a single draw)
 const TRAIL_POOL = 384;
 const TRAIL_ST = 17; // stations per ribbon (16 segments)
+export interface ThreeSceneOptions {
+  antialias: boolean;
+  alpha: boolean;
+  maxDpr: number;
+  shadows: boolean;
+  toneMapping: THREE.ToneMapping;
+}
 
 /** Collapse SkinnedMeshes under root to static Meshes baked in rest pose.
  *
@@ -141,13 +148,15 @@ function circleLine(r: number, axis: "xy" | "xz" | "yz", seg = 48): THREE.Buffer
 }
 
 export class ThreeScene {
-  private renderer: THREE.WebGLRenderer;
-  private scene: THREE.Scene = new THREE.Scene();
-  private camera: THREE.PerspectiveCamera;
+  readonly renderer: THREE.WebGLRenderer;
+  readonly scene: THREE.Scene = new THREE.Scene();
+  readonly camera: THREE.PerspectiveCamera;
   private meshes: THREE.InstancedMesh[] = [];
   private byShape: Record<string, number> = {};
   private solid: boolean[] = [];
-  private guides: THREE.Group = new THREE.Group();
+  readonly guides: THREE.Group = new THREE.Group();
+  private grid!: THREE.GridHelper;
+  private externalCamera = false;
   private guideRev = -1;
   private dummy: THREE.Object3D = new THREE.Object3D();
   private tmpColor: THREE.Color = new THREE.Color();
@@ -163,6 +172,7 @@ export class ThreeScene {
     used: boolean }[] = [];
   private modelRev = -1;
   private blendMode = "";
+  private warnedBlendFallbacks = new Set<string>();
   private blendRev = -1;
   // ribbon strips (trails): pooled 5-wide cross-section meshes sharing one
   // vertex-colored material; hidden when the effect has no trails block
@@ -173,13 +183,25 @@ export class ThreeScene {
   private flat: Set<string> = new Set(
     ["square", "billboard", "triangle", "star", "line", "circle", "custom"]);
 
-  constructor(private canvas: HTMLCanvasElement, private engine: ParticleEngine) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    this.renderer.setClearColor(0x000000, 0); // CSS gradient shows through
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  constructor(private canvas: HTMLCanvasElement, private engine: ParticleEngine,
+    options: Partial<ThreeSceneOptions> = {}) {
+    const renderOptions: ThreeSceneOptions = {
+      antialias: options.antialias ?? true,
+      alpha: options.alpha ?? true,
+      maxDpr: options.maxDpr ?? 2,
+      shadows: options.shadows ?? true,
+      toneMapping: options.toneMapping ?? THREE.ACESFilmicToneMapping,
+    };
+    this.renderer = new THREE.WebGLRenderer({
+      canvas, antialias: renderOptions.antialias, alpha: renderOptions.alpha,
+      stencil: false, depth: true, powerPreference: "high-performance",
+      preserveDrawingBuffer: false,
+    });
+    this.renderer.setClearColor(0x000000, renderOptions.alpha ? 0 : 1);
+    this.renderer.setPixelRatio(Math.min(renderOptions.maxDpr, window.devicePixelRatio || 1));
+    this.renderer.toneMapping = renderOptions.toneMapping;
     this.renderer.toneMappingExposure = 1.1;
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = renderOptions.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.camera = new THREE.PerspectiveCamera(60, 1, 1, 6000);
     this.scene.fog = new THREE.Fog(0x101218, 900, 2400);
@@ -207,8 +229,8 @@ export class ThreeScene {
     floor.position.y = -0.5;
     floor.receiveShadow = true;
     this.scene.add(floor);
-    const grid = new THREE.GridHelper(520, 10, 0x3a3d55, 0x2c2e44);
-    this.scene.add(grid);
+    this.grid = new THREE.GridHelper(520, 10, 0x3a3d55, 0x2c2e44);
+    this.scene.add(this.grid);
     this.scene.add(new THREE.AxesHelper(70));
     const dot = new THREE.Mesh(
       new THREE.SphereGeometry(4, 12, 10),
@@ -435,6 +457,9 @@ export class ThreeScene {
     } else if (mode === "Lighten") {
       blending = THREE.CustomBlending;
       equation = THREE.MaxEquation;
+    } else if (mode === "Overlay" && !this.warnedBlendFallbacks.has(mode)) {
+      this.warnedBlendFallbacks.add(mode);
+      console.warn("[Lempo viewport] Three.js Overlay blending is unsupported; using Normal.");
     }
     const apply = (m: THREE.Material): void => {
       m.blending = blending;
@@ -646,13 +671,16 @@ export class ThreeScene {
       this.syncBlending();
     }
     for (const p of this.modelPool) p.used = false;
-    // orbit camera from the shared engine.cam state
-    const cam = this.engine.cam;
-    const d: number = BASE_DIST / Math.max(0.3, cam.zoom);
-    const cp: number = Math.cos(cam.pitch), sp: number = Math.sin(cam.pitch);
-    this.camera.position.set(
-      d * cp * Math.sin(cam.yaw), d * sp, d * cp * Math.cos(cam.yaw));
-    this.camera.lookAt(0, 0, 0);
+    // Fast preview keeps its legacy engine.cam orbit. The viewport adapter
+    // opts into external OrbitControls without replacing the particle renderer.
+    if (!this.externalCamera) {
+      const cam = this.engine.cam;
+      const d: number = BASE_DIST / Math.max(0.3, cam.zoom);
+      const cp: number = Math.cos(cam.pitch), sp: number = Math.sin(cam.pitch);
+      this.camera.position.set(
+        d * cp * Math.sin(cam.yaw), d * sp, d * cp * Math.cos(cam.yaw));
+      this.camera.lookAt(0, 0, 0);
+    }
 
     const counts: number[] = this.counts.length === this.meshes.length
       ? (this.counts.fill(0), this.counts)
@@ -711,5 +739,31 @@ export class ThreeScene {
       for (let r = 0; r < TRAIL_POOL; r++) this.ribbons[r].visible = false;
     }
     this.renderer.render(this.scene, this.camera);
+  }
+
+  setExternalCamera(enabled: boolean): void { this.externalCamera = enabled; }
+
+  setView(opts: { grid?: boolean; guides?: boolean }): void {
+    if (opts.grid !== undefined) this.grid.visible = opts.grid;
+    if (opts.guides !== undefined) this.guides.visible = opts.guides;
+  }
+
+  dispose(): void {
+    this.scene.traverse((object) => {
+      const drawable = object as THREE.Mesh;
+      drawable.geometry?.dispose();
+      const materials = drawable.material;
+      if (Array.isArray(materials)) materials.forEach((material) => material.dispose());
+      else materials?.dispose();
+    });
+    for (const entry of this.modelCache.values()) {
+      entry.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        mesh.geometry?.dispose();
+        if (Array.isArray(mesh.material)) mesh.material.forEach((material) => material.dispose());
+        else mesh.material?.dispose();
+      });
+    }
+    this.renderer.dispose();
   }
 }

@@ -103,6 +103,10 @@ export class ViewportController {
           this.accumulator -= FIXED_DT;
           steps++;
         }
+      } else if (this.dirty) {
+        // Let control animations (for example ViewHelper camera snaps) advance
+        // on invalidated frames while the particle simulation is paused.
+        this.viewport.update(elapsed);
       }
       this.viewport.render();
       this.dirty = false;
