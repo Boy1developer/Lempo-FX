@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viewports & Previews — Lempo Particle FX Docs</title>
+<meta name="description" content="The Dear PyGui viewport and OpenGL raster layer, plus the separate browser fast preview.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Viewports & Previews — Lempo Particle FX Docs">
+<meta property="og:description" content="The Dear PyGui viewport and OpenGL raster layer, plus the separate browser fast preview.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / Using the Editor</p>
+<h1>Viewports &amp; Previews</h1>
+<p class="lead">The editor's Dear PyGui viewport and the separate browser fast preview
+serve different roles. The browser preview renderers share one TypeScript simulation engine;
+the editor's viewport and GDevelop extension use separate implementations.</p>
+
+<h2>1. Dear PyGui editor viewport</h2>
+<p>The production editor viewport is part of the Dear PyGui interface. It uses the drawlist,
+with an optional offscreen OpenGL raster layer for dense particle scenes and vector overlays
+for guides and gizmos. Three.js/PixiJS are not embedded in this viewport.</p>
+
+<div class="grid-2">
+  <figure><img src="assets/img/viewport-3d.png" alt="Editor viewport (3D) — Dear PyGui/OpenGL" loading="lazy"><figcaption><b>Editor viewport (3D)</b> — Dear PyGui/OpenGL</figcaption></figure>
+  <figure><img src="assets/img/viewport-2d.png" alt="Editor viewport (2D) — Dear PyGui drawlist" loading="lazy"><figcaption><b>Editor viewport (2D)</b> — Dear PyGui drawlist</figcaption></figure>
+</div>
+
+<div class="table-wrap"><table>
+  <tr><th>Layer</th><th>Role</th></tr>
+  <tr><td><strong>Drawlist</strong></td><td>Viewport drawing and editor overlays</td></tr>
+  <tr><td><strong>OpenGL raster</strong></td><td>Optional particle rasterization for dense scenes</td></tr>
+  <tr><td><strong>Spike B host</strong></td><td><code>viewport_host.py --viewport-host</code> is a migration spike, not production in-place integration.</td></tr>
+</table></div>
+
+<div class="tip"><strong>Migration status.</strong> Spike B demonstrates a possible viewport host.
+It does not replace or embed into the production Dear PyGui viewport.</div>
+
+<h2>2. In-editor GL preview</h2>
+<p>The optional offscreen <strong>OpenGL 3.3</strong> raster layer is built on raw
+<code>ctypes</code> (no PyOpenGL or numpy needed). It accelerates dense particle scenes;
+the Dear PyGui drawlist continues to render guides and gizmos over the particle layer.</p>
+<ul>
+  <li><strong>Adaptive viewport</strong> — crisp vector drawlist for small particle counts;
+      above ~900 particles the particle layer renders offscreen and uploads as a texture
+      while guides/gizmo stay vector.</li>
+  <li><strong>Blend-aware</strong> — every blend mode has an explicit GL formula with a
+      single-warning fallback.</li>
+</ul>
+
+<h2>3. Browser fast preview</h2>
+<p>Click <strong>Fast preview 60FPS</strong> in the status bar. It opens a separate,
+self-contained
+<code>live_effect.html</code> (≈1.1&nbsp;MB, <strong>zero network fetches</strong>) rendering the
+effect live through the shared TypeScript engine: Three.js (3D), PixiJS (2D), with a Canvas
+fallback. It has 500&nbsp;ms live-sync, particle count +
+FPS readout, an <em>Open JSON</em> button and <em>Replay burst</em>.</p>
+
+<div class="grid-2">
+  <figure><img src="assets/img/fast-preview-3d.png" alt="Fast preview (3D) — Three.js, 500 ms live-sync" loading="lazy"><figcaption><b>Fast preview (3D)</b> — Three.js, 500 ms live-sync</figcaption></figure>
+  <figure><img src="assets/img/fast-preview-2d.png" alt="Fast preview (2D) — PixiJS, 500 ms live-sync" loading="lazy"><figcaption><b>Fast preview (2D)</b> — PixiJS, 500 ms live-sync</figcaption></figure>
+</div>
+
+<p>Trail mode renders ribbons in the browser preview and hides particle dots. Rendering details
+may vary between preview and editor:</p>
+
+<figure><img src="assets/img/fast-preview-trail-2d.jpg" alt="Fast preview in trail mode — ribbons only, particle dots hidden" loading="lazy"><figcaption><b>Fast preview in trail mode</b> — ribbons only, particle dots hidden</figcaption></figure>
+
+<h2>Live-sync, explained</h2>
+<div class="steps">
+  <div class="step"><h3>Edit anything in the sidebar</h3>
+    <p>Flow, colors, gravity, trail width… every field is part of one effect snapshot.</p></div>
+  <div class="step"><h3>Snapshot is serialized (≤ 500 ms cadence)</h3>
+    <p>The editor batches rapid changes into one snapshot instead of streaming every keystroke.</p></div>
+  <div class="step"><h3>Preview applies it atomically</h3>
+    <p>The browser preview applies each snapshot atomically and reinitializes its seeded replay.</p></div>
+</div>
+
+<div class="note"><strong>OS-native file dialogs.</strong> Save / Export / Open use the OS file
+picker, because Dear PyGui's built-in dialogs return empty results here.</div>
+
+<h2>When something looks wrong</h2>
+<div class="table-wrap"><table>
+  <tr><th>Symptom</th><th>What to do</th></tr>
+  <tr><td>Editor viewport differs from browser output</td>
+      <td>The viewport renderers are separate. Compare simulation settings and renderer-specific
+      features; report reproducible differences with an exported effect.</td></tr>
+  <tr><td>Fast preview doesn't open</td>
+      <td>The file is fully offline. Reopen it from the editor's Fast Preview action.</td></tr>
+</table></div>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>

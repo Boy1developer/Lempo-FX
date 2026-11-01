@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap & FAQ — Lempo Particle FX Docs</title>
+<meta name="description" content="Viewport migration roadmap by phase, current implementation status, and frequently asked questions.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Roadmap & FAQ — Lempo Particle FX Docs">
+<meta property="og:description" content="Viewport migration roadmap by phase, current implementation status, and frequently asked questions.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / Project</p>
+<h1>Roadmap &amp; FAQ</h1>
+
+<h2>Viewport migration roadmap</h2>
+<p class="lead">The viewport migration is tracked in phases. Phases 0, 1 and 2 are implemented;
+the 100-cycle Phase 2 Chromium/WebGL acceptance passed with live StatsHUD, active trails,
+and no browser, canvas, HUD, or continuing renderer-resource leaks. The production editor
+still uses its Dear PyGui viewport.</p>
+<p>See the full <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/blob/main/LEMPO_VIEWPORT_MIGRATION_PLAN.md">Viewport Migration Plan</a>
+and the <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/blob/main/docs/viewport-migration-notes.md">migration notes</a>.</p>
+
+<div class="table-wrap"><table>
+  <tr><th>Phase</th><th>Status</th><th>Scope and current result</th></tr>
+  <tr><td><strong>0 · Recon, spikes &amp; baselines</strong></td><td><span class="tag new">Complete</span></td>
+      <td>Viewport/runtime inventory and renderer-version findings documented; Spike A JSON-lines round trip and Spike B frozen-host launch succeeded; baseline measurements are recorded in <code>bench/baseline-viewport.json</code>; preview tests pass on Three.js 0.185.1. The Spike B host is a demonstration, not production viewport integration.</td></tr>
+  <tr><td><strong>1 · Single browser-preview engine</strong></td><td><span class="tag new">Complete</span></td>
+      <td><code>lempo-runtime</code> now owns the renderer-agnostic browser simulation and trail math. Preview adapters consume reusable typed-array frames. Seeded 120-frame 2D/3D baselines preserve the pre-refactor preview behavior, and the extension artifact stayed unchanged. GDevelop still has a separate simulation; game-runtime parity is not complete.</td></tr>
+  <tr><td><strong>2 · Viewport interface &amp; renderers</strong></td><td><span class="tag new">Implemented</span></td>
+      <td>Implemented the viewport contract/controller, persisted adaptive quality, visible StatsHUD, and JSON-lines/WebSocket/polling transports. ThreeViewport uses lazy InstancedMesh buckets with per-particle alpha, a verified pooled classic fallback, model/trail pools, OrbitControls, move-only TransformControls, ViewHelper and guides. PixiViewport uses shape-batched ParticleContainers, pan/zoom, emitter drag, quality caps and pooled dynamic trail meshes. Chromium/WebGL passed 100 controller mode changes (50 per viewport), including HUD lifecycle, active trails, disposal/resource checks, and one warning per unsupported blend fallback. Production editor integration is Phase 3.</td></tr>
+  <tr><td><strong>3 · Python bridge</strong></td><td><span class="tag planned">Planned</span></td>
+      <td>Connect the editor to a child viewport host over JSON-lines, coalesce incremental edits, handle gizmo events and window lifecycle, and retain the legacy preview path.</td></tr>
+  <tr><td><strong>4 · Editor UX parity</strong></td><td><span class="tag planned">Planned</span></td>
+      <td>Match the legacy viewport's guides, gizmo, 2D zoom, trails, state colors, shape morph, transport controls and keyboard behavior; document any gaps.</td></tr>
+  <tr><td><strong>5 · Parity &amp; performance gates</strong></td><td><span class="tag planned">Planned</span></td>
+      <td>Add golden-image and particle-record comparisons plus benchmark gates, then verify the new viewport against the Phase 0 baseline in CI.</td></tr>
+  <tr><td><strong>6 · Deprecate legacy paths</strong></td><td><span class="tag planned">Gated: Phase 5 + owner approval</span></td>
+      <td>Only after parity is proven and the owner approves: make the web viewport default, remove superseded drawlist/OpenGL viewport paths where safe, update packaging/docs, and rebuild.</td></tr>
+  <tr><td><strong>7 · Move editor panels to web</strong></td><td><span class="tag planned">Optional / out of scope</span></td>
+      <td>Move inspector and other panels to a web UI only if the owner requests this separate follow-on.</td></tr>
+</table></div>
+
+<div class="note"><strong>Current architecture.</strong> Phase 1 made the browser preview renderers
+share one TypeScript engine; it did not make the GDevelop extension use that engine. Equal
+seeds therefore do not guarantee identical particle records across those runtimes. The
+Dear PyGui viewport remains the production editor viewport until the later bridge and parity
+phases are implemented.</div>
+
+<h2>FAQ</h2>
+
+<div class="card" style="margin-bottom:12px">
+  <h3>Do I need Python to use the editor?</h3>
+  <p>No — download <code>LempoParticleEditor.exe</code> from Releases or itch.io and run it.
+  Python is only needed to run from source.</p></div>
+
+<div class="card" style="margin-bottom:12px">
+  <h3>Which GDevelop version do I need?</h3>
+  <p><strong>≥ 5.6.284</strong>. Older versions render 3D particles at the wrong scale
+  (the world-scale fix and sRGB colors landed there).</p></div>
+
+<div class="card" style="margin-bottom:12px">
+  <h3>Will my old effect files still load?</h3>
+  <p>Yes. The export format is append-only: <code>migrate_effect()</code> upgrades v1.0 and v1.1 files to v1.2,
+  missing blend mode/seed and camelCase easings, and new fields always ship with their
+  defaults (all OFF).</p></div>
+
+<div class="card" style="margin-bottom:12px">
+  <h3>Why does my effect look different in the browser?</h3>
+  <p>Some differences are expected because the Dear PyGui viewport, browser preview and
+  GDevelop extension use different rendering or simulation paths. The browser preview's
+  renderers do share one simulation engine; Python/C++ parity is separately tested. Report
+  reproducible differences that contradict a documented contract.</p></div>
+
+<div class="card" style="margin-bottom:12px">
+  <h3>Is the browser preview embedded in the main editor viewport?</h3>
+  <p>No. The production viewport uses Dear PyGui drawlist/OpenGL rendering. Spike B's
+  <code>--viewport-host</code> demonstrates a migration option but is not an integrated
+  production viewport.</p></div>
+
+<div class="card" style="margin-bottom:12px">
+  <h3>Can I use effects in a non-GDevelop game?</h3>
+  <p>The export JSON + documented record layout are renderer-agnostic; the supported
+  runtimes today are the browser preview (Three.js/PixiJS) and the GDevelop extension.</p></div>
+
+<h2>Links</h2>
+<p>
+  <a class="btn btn-primary" href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">📥 Releases</a>
+  <a class="btn btn-ghost" href="https://eg-dev1.itch.io/lempo-fx">🎮 itch.io</a>
+  <a class="btn btn-ghost" href="https://github.com/Boy1developer/Lempo-FX">💻 Source</a>
+  <a class="btn btn-ghost" href="https://www.youtube.com/@EG_dev">🎬 YouTube</a>
+</p>
+
+<h2>Credits</h2>
+<p><strong>Mostafa Fathy (EG dev)</strong> — independent developer
+(<a href="https://github.com/Boy1developer">@Boy1developer</a>).</p>
+<div class="table-wrap"><table>
+  <tr><th>Library</th><th>License</th><th>Used for</th></tr>
+  <tr><td><a href="https://github.com/hoffstadt/DearPyGui">Dear PyGui</a></td><td>MIT</td><td>Desktop editor UI</td></tr>
+  <tr><td><a href="https://threejs.org">Three.js</a></td><td>MIT</td><td>3D rendering (browser preview + GDevelop extension; version 0.185.1)</td></tr>
+  <tr><td><a href="https://pixijs.com">PixiJS</a></td><td>MIT</td><td>2D rendering (browser preview 8.21.x; GDevelop 7.4.2)</td></tr>
+</table></div>
+<p>Released under the <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/blob/main/LICENSE">MIT License</a>.</p>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>

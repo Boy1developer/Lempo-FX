@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contracts & Export — Lempo Particle FX Docs</title>
+<meta name="description" content="The shared data contracts behind Lempo: contracts.json, generated bindings, export format v1.2 and the particle record layout.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Contracts & Export — Lempo Particle FX Docs">
+<meta property="og:description" content="The shared data contracts behind Lempo: contracts.json, generated bindings, export format v1.2 and the particle record layout.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / Developers</p>
+<h1>Shared Contracts &amp; Export Format</h1>
+<p class="lead">Shared schemas and named data contracts live in one place. Simulation
+implementations are not all identical: the browser preview has a shared TypeScript engine,
+while the GDevelop extension keeps a separate runtime.</p>
+
+<h2>Single source of truth</h2>
+<p><code>contracts/contracts.json</code> — particle record layout, <code>SHAPE_ORDER</code>,
+easings, blend modes, export schema, and the morph window.</p>
+
+<pre><code>python tools/generate_contracts.py          # regenerate the bindings
+python tools/generate_contracts.py --check  # CI drift gate</code></pre>
+
+<div class="warn"><strong>Edit the JSON, run the generator, never the generated outputs.</strong>
+CI fails on stale files or drifted consumers.</div>
+
+<h2>Consumers</h2>
+<div class="table-wrap"><table>
+  <tr><th>Consumer</th><th>How it reads the contracts</th></tr>
+  <tr><td><strong>Python</strong> (<code>editor/particle_studio.py</code>)</td>
+      <td>Imports the generated files directly</td></tr>
+  <tr><td><strong>C++ core</strong> (<code>core/particle_core.cpp</code>)</td>
+      <td>Includes the generated header (<code>contracts/gen/contracts.h</code>)</td></tr>
+  <tr><td><strong>Browser TypeScript</strong> (<code>lempo-runtime/</code>)</td>
+      <td>Shared source for browser-preview particle simulation and pure trail math; renderer adapters consume typed-array frames</td></tr>
+  <tr><td><strong>GDevelop extension</strong></td><td>Separate simulation implementation that consumes the export format</td></tr>
+</table></div>
+
+<h2>Export format v1.2</h2>
+<ul>
+  <li>Validated against <code>contracts/gen/schema.json</code> on <strong>save and load</strong>.</li>
+  <li>Easing values are hyphenated: <code>linear</code> / <code>ease-in</code> /
+      <code>ease-out</code> / <code>ease-in-out</code>.</li>
+  <li><code>migrate_effect()</code> heals old files automatically: missing version,
+      v1.0 and v1.1 → v1.2, camelCase easings, missing blend mode / seed.</li>
+  <li>The effect version is <strong>append-only</strong> — new fields arrive with defaults
+      (all OFF), so old files always load.</li>
+</ul>
+
+<h2>Particle record layout</h2>
+<p>One flat 22-field record per particle — the exact layout the parity tests compare:</p>
+
+<pre><code>[x, y, vx, vy, age, c0, c1, s0, s1, life, z, vz, shape, tracks,
+ dx, dy, dz, gx, gy, gz, sizeRatio, speedRatio]</code></pre>
+
+<div class="table-wrap"><table>
+  <tr><th>Fields</th><th>Meaning</th></tr>
+  <tr><td><code>x, y, z</code></td><td>position (z/vz used in 3D)</td></tr>
+  <tr><td><code>vx, vy, vz</code></td><td>velocity</td></tr>
+  <tr><td><code>age, life</code></td><td>age vs lifetime (0..1 drives everything over-life)</td></tr>
+  <tr><td><code>c0, c1</code></td><td>state colors (birth → death)</td></tr>
+  <tr><td><code>s0, s1</code></td><td>size keyframes</td></tr>
+  <tr><td><code>shape, tracks</code></td><td>morph shape ids + track bits</td></tr>
+  <tr><td><code>dx, dy, dz</code></td><td>direction / alignment axis</td></tr>
+  <tr><td><code>gx, gy, gz</code></td><td>guide/gizmo or per-particle offsets</td></tr>
+  <tr><td><code>sizeRatio, speedRatio</code></td><td>per-particle spawn draws (seeded RNG)</td></tr>
+</table></div>
+
+<h2>Determinism</h2>
+<p>A nonzero <code>seed</code> makes replay deterministic within each runtime. The preview
+and GDevelop extension consume random values differently, so equal seeds do not guarantee
+identical particle records between them:</p>
+<div class="table-wrap"><table>
+  <tr><th>Engine</th><th>RNG</th></tr>
+  <tr><td>Python (<code>SimEngine</code>)</td><td><code>_rand</code></td></tr>
+  <tr><td>C++ core</td><td><code>set_seed</code></td></tr>
+  <tr><td>Browser preview</td><td><code>mulberry32</code></td></tr>
+  <tr><td>GDevelop extension</td><td><code>F.srand</code> / <code>F.rrand</code></td></tr>
+</table></div>
+
+<div class="tip">Force fields (v1.2) followed the same recipe: appended with defaults OFF,
+so legacy motion stays <strong>bit-identical</strong> for old files. See
+<a href="testing.html">Testing</a> for the gates that enforce this.</div>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>
