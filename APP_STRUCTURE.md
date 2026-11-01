@@ -1,6 +1,6 @@
 # بنية مشروع Lempo Particle Editor
 
-> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ نقل الـviewport إلى WebView لم يُنفّذ بعد. الموجود حاليًا هو Spike A وSpike B وخط أساس الأداء ضمن `LEMPO_VIEWPORT_MIGRATION_PLAN.md`.
+> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ نقل الـviewport الإنتاجي إلى WebView لم يُنفّذ بعد. Phase 0 وPhase 1 من خطة الترحيل مكتملتان، وبدأ تأسيس عقود Phase 2 وحلقة الرسم المشتركة لمعاينة المتصفح.
 
 ## 1) شجرة المشروع
 
@@ -29,6 +29,14 @@ Lempo-FX/
 │   ├── main.ts / main.js        # بدء المعاينة ومزامنة التأثير
 │   ├── three_scene.ts / .js     # مشهد 3D باستخدام Three.js
 │   ├── pixi_scene.ts / .js      # مشهد 2D باستخدام PixiJS
+│   ├── viewport/
+│   │   ├── Viewport.ts / .js             # العقد المشترك للـviewport والأحداث والبيانات
+│   │   ├── ViewportController.ts / .js    # تبديل الـviewport وامتلاك حلقة الرسم
+│   │   ├── QualityManager.ts / .js       # درجات الجودة ومقياس الرسم التكيفي
+│   │   ├── StatsHUD.ts / .js              # عرض إحصاءات الأداء بمعدل محدود
+│   │   ├── Transport.ts / .js             # JSON Lines وWebSocket وHTTP polling
+│   │   └── three/
+│   │       └── ThreeViewport.ts / .js     # أساس WebGL والكاميرا وOrbitControls
 │   ├── preview.html             # قالب صفحة المعاينة
 │   ├── live_bundle.js           # حزمة JavaScript للمعاينة
 │   ├── live_effect.html         # صفحة معاينة مستقلة مضمّنة الموارد
@@ -75,9 +83,9 @@ Lempo-FX/
 | `editor/particle_studio.py` | القيم الافتراضية والقوالب والتحقق ومحاكاة Python، والمنطق الذي تستخدمه واجهة Tk الاحتياطية. |
 | `editor/raster_view.py` و`render/gl_view.py` | يقدّمان مسار raster اختياريًا: GLFW/OpenGL يرسم خارج الشاشة ثم تُرفع صورة إلى DPG. يبقى رسم الخلفيات والأدلة والتفاعل في طبقة DPG. عند تعذر المسار أو عدم انطباقه يستمر الرسم بالـdrawlist. |
 | `core/particle_core.cpp` | تنفيذ C++ اختياري لمحاكاة الجسيمات. يستخدمه المحرر متى توفرت الوحدة الأصلية؛ توجد محاكاة Python كمسار احتياطي. |
-| `preview/` | معاينة المتصفح مع محوّلات Three.js وPixiJS وCanvas. `preview.ts` يعيد تصدير محرك المحاكاة من `lempo-runtime`، والمحرك يسلّم بيانات الجسيمات عبر typed arrays معاد استخدامها؛ `canvas_renderer.ts` يعزل fallback الرسم على Canvas. الصفحة `live_effect.html` مجمعة لتعمل دون جلب مكتبات عبر الشبكة؛ المحرر يحدّث `last_effect.json` لمزامنة المعاينة. |
+| `preview/` | معاينة المتصفح مع محوّلات Three.js وPixiJS وCanvas. `preview.ts` يعيد تصدير محرك المحاكاة من `lempo-runtime`، والمحرك يسلّم بيانات الجسيمات عبر typed arrays معاد استخدامها؛ `canvas_renderer.ts` يعزل fallback الرسم على Canvas. `viewport/` يضم عقود الواجهة ومتحكمًا يملك حلقة `requestAnimationFrame` الوحيدة، ومدير الجودة وHUD الإحصاءات وواجهات النقل. Pixi ticker متوقف والرسم اليدوي يتم من الحلقة المشتركة. صفحة `live_effect.html` مجمعة دون جلب مكتبات عبر الشبكة؛ المحرر يحدّث `last_effect.json` لمزامنة المعاينة. |
 | `AdvancedParticleEmitter.json` | تنفيذ الإكستنشن داخل GDevelop، ويستهلك التأثيرات المصدرة. يتطلب الإصدار الحالي GDevelop 5.6.284 أو أحدث لعرض 3D بالمقياس الصحيح. |
-| `lempo-runtime/` | مصدر TypeScript مشترك: تحميل/تحقق التأثير، محرك المحاكاة النقي `src/engine.ts`، وحسابات trails النقية `src/trails.ts`. لا يعتمد المحرك على Three.js أو PixiJS؛ الإكستنشن داخل GDevelop ما زال تنفيذًا منفصلًا إلى أن تكتمل مطابقة Phase 1. |
+| `lempo-runtime/` | مصدر TypeScript مشترك: تحميل/تحقق التأثير، محرك المحاكاة النقي `src/engine.ts`، وحسابات trails النقية `src/trails.ts`. لا يعتمد المحرك على Three.js أو PixiJS؛ الإكستنشن داخل GDevelop ما زال تنفيذًا منفصلًا ولم تكتمل مطابقته. |
 | `contracts/` | تعريف مشترك لشكل سجل الجسيمات والأشكال ونسخة التصدير وقيم easing وblend modes؛ الملفات داخل `contracts/gen/` مولّدة. |
 
 ### مسار رسم الـviewport الحالي

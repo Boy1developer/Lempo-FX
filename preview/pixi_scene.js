@@ -116,7 +116,9 @@ export class PixiScene {
             canvas: this.canvas,
             background: "#14151c",
             antialias: true,
+            autoStart: false,
         });
+        this.app.ticker.stop();
         this.tex = buildTextures();
         this.grid = new PIXI.Graphics();
         this.app.stage.addChild(this.grid);
@@ -135,6 +137,11 @@ export class PixiScene {
         this.gizmo = new PIXI.Graphics();
         this.app.stage.addChild(this.gizmo);
         this.ready = true;
+    }
+    /** Render from the viewport's shared animation-frame loop. */
+    render() {
+        if (this.ready)
+            this.app.renderer.render({ container: this.app.stage });
     }
     normShape(shape) {
         const s = String(shape ?? "circle").toLowerCase();
@@ -264,8 +271,7 @@ export class PixiScene {
             quad((s) => (tw[s] / 2) * cw, (s) => tc[s], (s) => ta[s]);
         }
     }
-    /** Sync sprites from the engine state. Engine.update() is driven by the
-     *  shared rAF loop in preview.html; Pixi auto-renders on its own ticker. */
+    /** Sync sprites from engine state; rendering is driven by ViewportController. */
     sync(ex, ey) {
         if (!this.ready)
             return;

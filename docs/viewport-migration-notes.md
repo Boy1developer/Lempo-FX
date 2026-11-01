@@ -161,3 +161,39 @@ against that implementation remains outstanding.
   `studio_imgui.py` entry point dispatches `--viewport-host` before starting
   Dear PyGui.
 
+## Phase 2 — steps 1–2: viewport contract and shared frame loop
+
+- Added `preview/viewport/Viewport.ts` with the shared mode/tool/tier, stats,
+  patch operation, event payload, and viewport lifecycle contract.
+- Added `ViewportController`, `QualityManager`, `StatsHUD`, and `Transport`
+  modules. Transport implementations cover the pywebview host's JSON-lines
+  adapter, a local/debug WebSocket, and HTTP polling.
+- The controller owns the browser fast preview's `requestAnimationFrame`
+  scheduler. It pauses while the document is hidden, resumes with a fresh time
+  origin, supports dirty-frame invalidation, and uses a capped fixed-step
+  accumulator when driving a mounted `Viewport` implementation.
+- Connected the current fast-preview callback to the controller. Pixi's
+  built-in ticker is disabled and `PixiScene.render()` is called from that same
+  frame callback, avoiding an independent Pixi render loop.
+- **Still outstanding in Phase 2:** concrete `ThreeViewport` and `PixiViewport`
+  classes implementing the contract, applying quality profiles to renderers,
+  and contract/switching/resource-lifecycle tests. The production Dear PyGui
+  viewport is not connected to this controller; the fast preview remains a
+  separate browser page.
+
+## Phase 2 — step 3 and first 3D renderer task
+
+- The existing build path satisfies the self-contained bundle task: `tools/build_preview.py`
+  runs the preview TypeScript check and bundles `preview/main.ts` and its imported
+  dependencies into `preview/live_bundle.js`. `studio_imgui.open_fast_preview()`
+  embeds that bundle and the boot effect directly into `live_effect.html`; no
+  network imports are needed by the bundled renderer code.
+- Added `preview/viewport/three/ThreeViewport.ts` as the first Three.js viewport
+  foundation. It creates a low-tier-configured `WebGLRenderer`, a perspective
+  camera and `OrbitControls` with damping disabled; it also handles resize,
+  camera-change invalidation and disposal. It does not yet implement particle
+  simulation/rendering or the full `Viewport` contract.
+- The preview build passed after this addition. The 3D foundation is not yet
+  mounted by the current preview page or production Dear PyGui editor; subsequent
+  Phase 2 tasks must add particle rendering and connect it through the controller.
+

@@ -108,7 +108,9 @@ export class PixiScene {
       canvas: this.canvas,
       background: "#14151c",
       antialias: true,
+      autoStart: false,
     });
+    this.app.ticker.stop();
     this.tex = buildTextures();
     this.grid = new PIXI.Graphics();
     this.app.stage.addChild(this.grid);
@@ -127,6 +129,11 @@ export class PixiScene {
     this.gizmo = new PIXI.Graphics();
     this.app.stage.addChild(this.gizmo);
     this.ready = true;
+  }
+
+  /** Render from the viewport's shared animation-frame loop. */
+  render(): void {
+    if (this.ready) this.app.renderer.render({ container: this.app.stage });
   }
 
   private normShape(shape: string): string {
@@ -256,8 +263,7 @@ export class PixiScene {
     }
   }
 
-  /** Sync sprites from the engine state. Engine.update() is driven by the
-   *  shared rAF loop in preview.html; Pixi auto-renders on its own ticker. */
+  /** Sync sprites from engine state; rendering is driven by ViewportController. */
   sync(ex: number, ey: number): void {
     if (!this.ready) return;
     // Lazily preload any custom-shape image textures not yet loaded (covers

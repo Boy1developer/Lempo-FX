@@ -112,7 +112,7 @@ Both parts share the export schema and named contracts (see [Shared Contracts](#
 
 ### 🔍 Previews
 - **In-editor GPU preview** — a minimal offscreen OpenGL 3.3 renderer built on raw `ctypes` (no PyOpenGL or numpy needed).
-- **Browser fast preview** — a self-contained `live_effect.html` (≈1.1 MB, zero network fetches) using the shared TypeScript engine, Three.js (3D), PixiJS (2D), and a Canvas fallback, with 500 ms live-sync. Trail mode renders ribbons in the preview too and hides the particle dots, like the editor viewport.
+- **Browser fast preview** — a self-contained `live_effect.html` (≈1.1 MB, zero network fetches) using the shared TypeScript engine, Three.js (3D), PixiJS (2D), and a Canvas fallback, with 500 ms live-sync. A shared `ViewportController` owns the preview's animation-frame loop; Pixi's automatic ticker is disabled. Trail mode renders ribbons in the preview too and hides the particle dots, like the editor viewport.
 - **Renderer versions** — the preview pins Three.js `0.185.1`, matching GDevelop 5.6.284. Browser PixiJS `8.21` is still a different major from GDevelop's `7.4.2`; the compatibility difference is documented in the [migration notes](docs/viewport-migration-notes.md).
 - **In-game trails (extension v0.2.0)** — exported trail effects render as ribbons inside GDevelop as well (2D quad strips, 3D billboard strips, pooled and blend-aware), with `hideParticle` honored. No new objects: the existing emitters grow trail support, and trail-less effects render bit-identical to before.
 - **OS-native file dialogs** — Save / Export / Open use the OS file picker, because Dear PyGui's built-in dialogs return empty results here.
@@ -203,7 +203,7 @@ The shared data contract and named constants live in one place: [`contracts/cont
 | `editor/` | Desktop app — Dear PyGui UI (`studio_imgui.py`), Tk fallback and shared logic layer (`particle_studio.py`) |
 | `core/` | C++ simulation core (`particle_core.cpp`) + parity and behavior tests |
 | `render/` | In-editor OpenGL renderer and render tests |
-| `preview/` | Browser fast preview adapters (Three.js / PixiJS / Canvas), entry points, and tests |
+| `preview/` | Browser fast preview adapters (Three.js / PixiJS / Canvas), shared viewport contracts/controller/services, initial Three.js viewport surface, entry points, and tests |
 | `lempo-runtime/` | Typed effect loader plus the renderer-agnostic TypeScript engine and trail math used by the browser preview; GDevelop retains a separate runtime implementation |
 | `contracts/` | Shared contracts (`contracts.json`) and generated bindings (`gen/`) |
 | `assets/` | App icon and bundled presets (`presets/trails/`) |

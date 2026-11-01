@@ -8,6 +8,7 @@ import { ParticleEngine } from "./preview.js";
 import { CanvasPreviewRenderer } from "./canvas_renderer.js";
 import { ThreeScene } from "./three_scene.js";
 import { PixiScene } from "./pixi_scene.js";
+import { ViewportController } from "./viewport/ViewportController.js";
 
 declare global {
   interface Window { __previewBooted?: boolean }
@@ -39,6 +40,7 @@ const errBox = document.getElementById("err") as HTMLElement;
 let mx = -1, my = -1, lastText = "", cx = 0, cy = 0;
 let loaded = false;
 let bootArmed = true;
+const viewportController = new ViewportController();
 
 function showErr(m: string): void {
   errBox.style.display = m ? "block" : "none";
@@ -56,6 +58,8 @@ function applyEffect(eff: unknown): void {
     const tag: string = String(t ?? "?") + (engine.is3D ? " • three.js" : " • pixi.js");
     (document.getElementById("typeBadge") as HTMLElement).textContent = tag;
     loaded = true; showErr("");
+    viewportController.setContinuous(true);
+    viewportController.invalidate();
     // Preload custom-shape image textures so the Pixi renderer can show them.
     // (PixiScene.sync() also lazily preloads, covering the boot race where
     // pixi.init() finishes after the first applyEffect.)
@@ -175,12 +179,10 @@ function drawGrid(W: number, H: number): void {
   ctx.stroke();
 }
 
-let last = performance.now(), fpsE = 60;
+let fpsE = 60;
 let bootedFlag = false;
-function frame(now: number): void {
+function frame(now: number, dt: number): void {
   if (!bootedFlag) { bootedFlag = true; window.__previewBooted = true; }
-  const dt: number = Math.min(0.05, Math.max(1e-3, (now - last) / 1000));
-  last = now;
   fpsE += ((1 / Math.max(dt, 1e-3)) - fpsE) * 0.06;
   const r: DOMRect = cv.getBoundingClientRect(), W: number = r.width, H: number = r.height;
   if (loaded && engine.is3D) {
@@ -211,6 +213,7 @@ function frame(now: number): void {
       const ex: number = mx >= 0 ? mx : cx, ey: number = my >= 0 ? my : cy;
       engine.update(dt, ex, ey);
       pixi.sync(ex, ey);
+      pixi.render();
       (document.getElementById("pCount") as HTMLElement).textContent = String(engine.activeCount);
       (document.getElementById("hint") as HTMLElement).textContent =
         "2D WebGL (pixi.js) — emitter follows mouse • live-sync every 500ms";
@@ -232,9 +235,9 @@ function frame(now: number): void {
     }
   }
   (document.getElementById("pFps") as HTMLElement).textContent = String(Math.round(Math.min(fpsE, 240)));
-  requestAnimationFrame(frame);
 }
+viewportController.setFrameHandler(({ now, dt }) => frame(now, dt));
 bootFromEmbed();
 setInterval(pollLive, 500);
 pollLive();
-requestAnimationFrame(frame);
+viewportController.invalidate();

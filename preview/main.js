@@ -8,6 +8,7 @@ import { ParticleEngine } from "./preview.js";
 import { CanvasPreviewRenderer } from "./canvas_renderer.js";
 import { ThreeScene } from "./three_scene.js";
 import { PixiScene } from "./pixi_scene.js";
+import { ViewportController } from "./viewport/ViewportController.js";
 const cv = document.getElementById("cv");
 const gl = document.getElementById("gl");
 const px = document.getElementById("px");
@@ -37,6 +38,7 @@ const errBox = document.getElementById("err");
 let mx = -1, my = -1, lastText = "", cx = 0, cy = 0;
 let loaded = false;
 let bootArmed = true;
+const viewportController = new ViewportController();
 function showErr(m) {
     errBox.style.display = m ? "block" : "none";
     errBox.textContent = m || "";
@@ -52,6 +54,8 @@ function applyEffect(eff) {
         document.getElementById("typeBadge").textContent = tag;
         loaded = true;
         showErr("");
+        viewportController.setContinuous(true);
+        viewportController.invalidate();
         // Preload custom-shape image textures so the Pixi renderer can show them.
         // (PixiScene.sync() also lazily preloads, covering the boot race where
         // pixi.init() finishes after the first applyEffect.)
@@ -199,15 +203,13 @@ function drawGrid(W, H) {
     }
     ctx.stroke();
 }
-let last = performance.now(), fpsE = 60;
+let fpsE = 60;
 let bootedFlag = false;
-function frame(now) {
+function frame(now, dt) {
     if (!bootedFlag) {
         bootedFlag = true;
         window.__previewBooted = true;
     }
-    const dt = Math.min(0.05, Math.max(1e-3, (now - last) / 1000));
-    last = now;
     fpsE += ((1 / Math.max(dt, 1e-3)) - fpsE) * 0.06;
     const r = cv.getBoundingClientRect(), W = r.width, H = r.height;
     if (loaded && engine.is3D) {
@@ -244,6 +246,7 @@ function frame(now) {
             const ex = mx >= 0 ? mx : cx, ey = my >= 0 ? my : cy;
             engine.update(dt, ex, ey);
             pixi.sync(ex, ey);
+            pixi.render();
             document.getElementById("pCount").textContent = String(engine.activeCount);
             document.getElementById("hint").textContent =
                 "2D WebGL (pixi.js) — emitter follows mouse • live-sync every 500ms";
@@ -267,9 +270,9 @@ function frame(now) {
         }
     }
     document.getElementById("pFps").textContent = String(Math.round(Math.min(fpsE, 240)));
-    requestAnimationFrame(frame);
 }
+viewportController.setFrameHandler(({ now, dt }) => frame(now, dt));
 bootFromEmbed();
 setInterval(pollLive, 500);
 pollLive();
-requestAnimationFrame(frame);
+viewportController.invalidate();
