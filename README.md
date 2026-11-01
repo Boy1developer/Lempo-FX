@@ -29,18 +29,20 @@ A standalone desktop editor with real-time GPU preview, paired with the **Advanc
 
 </div>
 
+> **📌 Which version does this describe?** This README documents the **released v0.2.0** editor and extension. Anything marked **🚧** is already in `main` but **not in a release yet** — see [Unreleased](#-unreleased-in-main). The next release is planned once the [viewport migration roadmap](docs/viewport-migration-notes.md) is complete.
+
 ---
 
 ## 📖 Overview
 
-Lempo Particle Editor is a two-part toolkit:
+Lempo Particle FX is a two-part toolkit:
 
 | Part | What it is |
 | --- | --- |
 | **Lempo Particle Editor** | A Dear PyGui desktop app (`LempoParticleEditor.exe`) for designing effects with a live viewport, then exporting them as JSON. |
 | **Advanced Particle Emitter** | A GDevelop extension (`AdvancedParticleEmitter.json`) that renders those effects in-game: **2D** via [PixiJS](https://pixijs.com) and **3D** via [Three.js](https://threejs.org). |
 
-Both parts share the export schema and named contracts (see [Shared Contracts](#-shared-contracts)). The browser preview's Three.js, PixiJS, and Canvas adapters use the same renderer-agnostic TypeScript particle engine. The GDevelop extension still has its own simulation implementation, so a few behaviors are not yet record-identical across the preview and game runtime; see the [viewport migration notes](docs/viewport-migration-notes.md).
+Both parts share the export schema and named contracts (see [Shared Contracts](#-shared-contracts)). The editor viewport, the browser preview and the GDevelop extension are separate runtimes, so rendering and simulation details can differ between them.
 
 > Works in any GDevelop project — design the effect in the editor, play it in-game with the Advanced Particle Emitter extension.
 
@@ -93,11 +95,11 @@ Both parts share the export schema and named contracts (see [Shared Contracts](#
 ### 🎛️ Editor
 - **12 particle shapes** — circle, square, triangle, star, diamond, line, custom, sphere, cube, pyramid, torus, billboard — shared by the 2D and 3D renderers.
 - **Custom 3D models & images** — upload `.glb` / `.gltf` / `.obj` (or images for 2D). Models render as themselves in the viewport, the browser preview, and in-game. Rigged/skinned GLBs are baked to their rest pose automatically.
-- **Per-state colors** — birth / mid / death each keep their own color. White means natural materials; any other color tints over the base.
+- **Per-state colors** — birth, death and any extra states you add each keep their own color. White means natural materials; any other color tints over the base.
 - **Gradual shape morph** — birth-to-death shapes cross-fade inside the `(0.25, 0.75)` window instead of snapping (desktop viewport + browser preview; game runtime keeps the classic swap for meshes).
 - **Ready-made templates** — Explosion, Fire, Rain, Snow (2D + 3D variants), with 100-step undo/redo.
 - **Force fields** *(export v1.2)* — age-phased turbulence, Y-axis vortex, linear-falloff attractor, and a bounce/friction collision plane. All off by default (legacy motion stays bit-identical).
-- **Deterministic seed** — a nonzero `seed` makes replay deterministic within each runtime; `0` keeps legacy unseeded behavior. The preview and GDevelop extension use separate spawn implementations, so identical seeds do not yet guarantee identical particle records between them.
+- **Deterministic seed** — a nonzero `seed` makes replay deterministic within each runtime; `0` keeps legacy unseeded behavior. Identical seeds are not guaranteed to produce identical particle records across the editor, the browser preview and GDevelop.
 - **Blend modes** — Normal, Additive, Subtractive, Multiply, Screen, Lighten, Overlay, selectable per emitter (see [Blend Modes](#-blend-modes)).
 - **Trails & Ribbons** — a dedicated mode (key `4` for 2D, key `5` for 3D in the startup dialog) with a Unity-style inspector, width/gradient curve editors, `time` / `distance` emission, and a browser of **27 ready-made templates** (combat, magic, movement, nature, stylized) with search, favorites, and your own saved presets. 👉 Full details: [docs/trails.md](docs/trails.md)
 
@@ -107,16 +109,35 @@ Both parts share the export schema and named contracts (see [Shared Contracts](#
 - **InstancedMesh batching (3D primitives)** — ~580 draw calls collapse into ~12 buckets, verified **pixel-identical** per particle (matrix, color, alpha), including morph flips and all blend modes.
 - **Lazy buckets & pooled runtime** — empty buckets cost zero draw calls, and shape-aware mesh/material pooling keeps steady state free of per-frame allocations. Automatic fallback to the classic path if instancing is unavailable.
 - **Dual simulation core** — a Python reference plus an optional compiled **C++ core** for faster live preview, checked for numerical parity (99/99 cases) against Python.
-- **Shared browser-preview simulation** — the Three.js, PixiJS, and Canvas adapters consume one TypeScript engine and its reusable typed-array particle frames; they do not each implement their own simulation.
 - **Adaptive viewport** — crisp vector drawlist for small particle counts; above ~900 particles the particle layer renders offscreen and uploads as a texture while guides/gizmo stay vector.
 
 ### 🔍 Previews
 - **In-editor GPU preview** — a minimal offscreen OpenGL 3.3 renderer built on raw `ctypes` (no PyOpenGL or numpy needed).
-- **Browser fast preview** — a self-contained `live_effect.html` (≈1.1 MB, zero network fetches) using the shared TypeScript engine, Three.js (3D), PixiJS (2D), and a Canvas fallback, with 500 ms live-sync. A shared `ViewportController` owns the preview's animation-frame loop; Pixi's automatic ticker is disabled. Trail mode renders ribbons in the preview too and hides the particle dots, like the editor viewport.
-- **Viewport migration Phase 2** — the preview includes contract-based `ThreeViewport` and `PixiViewport` adapters, switchable through `ViewportController.setMode()`, with adaptive quality, persisted manual quality, and a live stats HUD. Both paths passed a 100-cycle Chromium/WebGL lifecycle check; Three's instanced and pooled classic fallback paths are exercised. The editor's Dear PyGui viewport is still the production path; connecting the adapters to the editor is Phase 3.
-- **Renderer versions** — the preview pins Three.js `0.185.1`, matching GDevelop 5.6.284. Browser PixiJS `8.21` is still a different major from GDevelop's `7.4.2`; the compatibility difference is documented in the [migration notes](docs/viewport-migration-notes.md).
+- **Browser fast preview** — a self-contained `live_effect.html` (≈1.1 MB, zero network fetches) rendering the same effect live in Three.js (3D) / PixiJS (2D), with 500 ms live-sync. Trail mode renders ribbons in the preview too and hides the particle dots, like the editor viewport.
 - **In-game trails (extension v0.2.0)** — exported trail effects render as ribbons inside GDevelop as well (2D quad strips, 3D billboard strips, pooled and blend-aware), with `hideParticle` honored. No new objects: the existing emitters grow trail support, and trail-less effects render bit-identical to before.
-- **OS-native file dialogs** — Save / Export / Open use the OS file picker, because Dear PyGui's built-in dialogs return empty results here.
+- **OS-native file dialogs** — Save / Export / Open use the OS file picker, because Dear PyGui's built-in file dialogs return empty results in this editor.
+
+---
+
+## 🚧 Unreleased (in `main`)
+
+These changes belong to the [viewport migration](docs/viewport-migration-notes.md). They are in `main` but **not in the v0.2.0 binaries**: the released editor still uses its Dear PyGui viewport and the previous browser preview, and the GDevelop extension is unchanged.
+
+- **Shared browser-preview simulation** *(Phase 1)* — the Three.js, PixiJS and Canvas adapters consume one renderer-agnostic TypeScript engine (`lempo-runtime/`) and its reusable typed-array particle frames; they do not each implement their own simulation. Seeded 120-frame regression snapshots check that preview behavior is preserved.
+- **Viewport adapters** *(Phase 2)* — contract-based `ThreeViewport` and `PixiViewport`, switchable through `ViewportController.setMode()`, with adaptive quality, persisted manual quality, and a live stats HUD. The controller owns the preview's animation-frame loop (Pixi's automatic ticker is disabled). Both paths passed a 100-cycle Chromium/WebGL lifecycle check, and Three's instanced and pooled classic fallback paths are exercised. Connecting the adapters to the editor is Phase 3.
+- **Renderer versions** — the preview pins Three.js `0.185.1`, matching GDevelop 5.6.284. Browser PixiJS `8.21` is still a different major from GDevelop's `7.4.2`; the compatibility difference is documented in the [migration notes](docs/viewport-migration-notes.md).
+- **Still open** — the GDevelop extension keeps its own simulation, so particle-record parity between the browser preview and the game runtime is not complete yet.
+
+| Phase | Status |
+| --- | --- |
+| 0 · Recon, spikes & baselines | ✅ In `main` |
+| 1 · Single browser-preview engine | ✅ In `main` |
+| 2 · Viewport interface & renderers | ✅ In `main` |
+| 3 · Python bridge | ⏳ Planned |
+| 4 · Editor UX parity | ⏳ Planned |
+| 5 · Parity & performance gates | ⏳ Planned |
+| 6 · Deprecate legacy paths | 🔒 After Phase 5 + owner approval |
+| 7 · Move editor panels to web | Optional / out of scope |
 
 ---
 
@@ -132,6 +153,9 @@ Download `LempoParticleEditor.exe` from the **[Releases](https://github.com/Boy1
 <summary><b>Run from source / rebuild</b></summary>
 
 ```bash
+git clone https://github.com/Boy1developer/Lempo-FX.git
+cd Lempo-FX
+git checkout v0.2.0   # optional: the released version (main contains unreleased work)
 pip install dearpygui
 python editor/studio_imgui.py
 ```
@@ -187,7 +211,7 @@ Unsupported combinations fall back to Normal with a **single** `console.warn` �
 
 ## 🤝 Shared Contracts
 
-The shared data contract and named constants live in one place: [`contracts/contracts.json`](contracts/contracts.json) — particle record layout, `SHAPE_ORDER`, easings, blend modes, export schema, and morph window. Simulation code is shared between the browser preview's renderers; the GDevelop extension still has its own implementation, with parity work tracked separately.
+The shared data contract and named constants live in one place: [`contracts/contracts.json`](contracts/contracts.json) — particle record layout, `SHAPE_ORDER`, easings, blend modes, export schema, and morph window. The contract covers data and constants, not simulation code: each runtime implements its own simulation, and parity is checked by tests and tracked in the [Roadmap](#️-roadmap).
 
 **Edit the JSON, run `tools/generate_contracts.py`, never the generated outputs.** CI fails on stale files or drifted consumers.
 
@@ -199,13 +223,15 @@ The shared data contract and named constants live in one place: [`contracts/cont
 
 ## 🗂️ Project Structure
 
+<sub>🚧 = in `main`, not in a release yet.</sub>
+
 | Folder | Contents |
 | --- | --- |
 | `editor/` | Desktop app — Dear PyGui UI (`studio_imgui.py`), Tk fallback and shared logic layer (`particle_studio.py`) |
 | `core/` | C++ simulation core (`particle_core.cpp`) + parity and behavior tests |
 | `render/` | In-editor OpenGL renderer and render tests |
-| `preview/` | Browser fast preview adapters (Three.js / PixiJS / Canvas), shared viewport contracts/controller/services, Three.js scene adapter with camera/gizmo/view-helper, entry points, and tests |
-| `lempo-runtime/` | Typed effect loader plus the renderer-agnostic TypeScript engine and trail math used by the browser preview; GDevelop retains a separate runtime implementation |
+| `preview/` | Browser fast preview (Three.js / PixiJS) and its tests. 🚧 Also: Canvas adapter, shared viewport contracts/controller/services, Three.js scene adapter with camera/gizmo/view-helper, entry points |
+| `lempo-runtime/` | 🚧 Typed effect loader plus the renderer-agnostic TypeScript engine and trail math used by the browser preview; GDevelop retains a separate runtime implementation |
 | `contracts/` | Shared contracts (`contracts.json`) and generated bindings (`gen/`) |
 | `assets/` | App icon and bundled presets (`presets/trails/`) |
 | `presets/` | Effect presets |
@@ -219,7 +245,9 @@ The shared data contract and named constants live in one place: [`contracts/cont
 
 ## 🧪 Testing
 
-CI runs the parity, behavior, and contract checks on every push (`.github/workflows/ci.yml`). Highlights: Python ↔ C++ parity (**99/99**), 120-frame seeded preview-engine regression snapshots, typed-array frame-buffer reuse, seed replay, force fields, blend modes, trails, and the shipped GDevelop runtime tested headlessly.
+CI runs the parity, behavior, and contract checks on every push (`.github/workflows/ci.yml`). Highlights: Python ↔ C++ parity (**99/99**), seed replay, force fields, blend modes, trails, and the shipped GDevelop runtime tested headlessly.
+
+🚧 `main` also adds 120-frame seeded preview-engine regression snapshots and typed-array frame-buffer reuse checks for the unreleased viewport work.
 
 👉 Full test matrix: [docs/testing.md](docs/testing.md)
 
@@ -233,6 +261,7 @@ CI runs the parity, behavior, and contract checks on every push (`.github/workfl
 | [docs/trails.md](docs/trails.md) | Trails & Ribbons — modes, emit types, template format, adding your own template, C++ API |
 | [docs/contracts.md](docs/contracts.md) | Shared contracts, generated bindings, export format, particle record layout |
 | [docs/testing.md](docs/testing.md) | Full test matrix |
+| [docs/viewport-migration-notes.md](docs/viewport-migration-notes.md) | 🚧 Viewport migration notes and renderer compatibility |
 | [APP_STRUCTURE.md](APP_STRUCTURE.md) | App architecture notes |
 | [PROGRESS.md](PROGRESS.md) | Development progress log |
 
@@ -250,14 +279,20 @@ CI runs the parity, behavior, and contract checks on every push (`.github/workfl
 - [x] Trails & Ribbons renderer (79-key TRAIL_SCHEMA, 27 templates, Godot-style distance emission, C++ registry + DPG browser) *(v0.2.0)*
 - [x] Template browser with search, favorites, and user presets + world-space 2D zoom
 - [x] Over-life Bézier curves and gradient editor
+
+**Done in `main` — not released yet** 🚧
 - [x] Shared TypeScript engine for browser-preview renderers, typed-array handoff, and seeded frame-by-frame regression checks *(viewport migration Phase 1)*
+- [x] `ThreeViewport` / `PixiViewport` adapters with `ViewportController`, adaptive quality, and a live stats HUD *(viewport migration Phase 2)*
 
 **Planned**
+- [ ] Connect the viewport adapters to the editor through a Python bridge *(Phase 3)*
+- [ ] Match the legacy viewport's guides, gizmo, 2D zoom, trails, state colors, and shape morph in the new viewport *(Phase 4)*
+- [ ] Golden-image tests (editor render vs browser preview) and benchmark gates *(Phase 5)*
+- [ ] Retire the legacy viewport paths once parity is proven *(Phase 6)*
 - [ ] Bring the GDevelop extension simulation into explicit particle-record parity with the shared browser-preview engine
-- [ ] Flipbook animation, UV scroll, soft particles
+- [ ] Flipbook animation and UV scroll for regular particles (trails already have them), soft particles
 - [ ] Effect node tree with parent/child emitters and sub-emitters
 - [ ] Timeline with scrubbing and a preset gallery
-- [ ] Golden-image tests (editor render vs browser preview)
 
 ---
 
