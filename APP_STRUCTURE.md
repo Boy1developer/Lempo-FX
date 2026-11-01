@@ -1,6 +1,6 @@
 # بنية مشروع Lempo Particle Editor
 
-> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ محوّلات الـviewport الجديدة 2D/3D موجودة في معاينة المتصفح، لكن ربطها بواجهة المحرر عبر WebView (Phase 3) لم يُنفّذ بعد. اكتملت Phase 2، بما فيها HUD مرئي للإحصاءات والجودة التكيفية، واجتاز المحوّلان 100 تبديل فعلي في Chromium/WebGL بلا تسرب canvas أو HUD أو نمو مستمر في الموارد، مع ظهور trails في الوضعين.
+> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ اكتمل هيكل Python الأولي لجسر الـviewport في Phase 3، لكن مضيف pywebview لم يُفعّل بعد كمرحّل للرسائل ولم يُربط بالواجهة. اكتملت Phase 2، بما فيها HUD مرئي للإحصاءات والجودة التكيفية، واجتاز المحوّلان 100 تبديل فعلي في Chromium/WebGL بلا تسرب canvas أو HUD أو نمو مستمر في الموارد، مع ظهور trails في الوضعين.
 
 ## 1) شجرة المشروع
 
@@ -8,6 +8,7 @@
 Lempo-FX/
 ├── editor/
 │   ├── studio_imgui.py          # المحرر الرئيسي: Dear PyGui والـviewport ثنائي/ثلاثي الأبعاد
+│   ├── viewport_bridge.py       # إدارة عملية viewport-host ورسائل JSON Lines وأحداثه
 │   ├── particle_studio.py       # منطق مشترك ومحرك Python وواجهة Tk الاحتياطية
 │   ├── raster_view.py           # يربط رندر OpenGL بصورة GPU داخل DPG عند كثافة الجسيمات
 │   ├── mesh_cache.py            # قراءة وتحضير النماذج المخصصة
@@ -82,6 +83,7 @@ Lempo-FX/
 | المكوّن | المسؤولية الحالية |
 |---|---|
 | `editor/studio_imgui.py` | واجهة Dear PyGui، المحرر والـinspector، اختيار وضع 2D/3D، عرض الجسيمات، تفاعل الفأرة والاختصارات، undo/redo، التصدير، وكتابة التأثير للمعاينة. يبدأ كذلك مضيف Spike B عند تمرير `--viewport-host`. |
+| `editor/viewport_bridge.py` | يدير عملية viewport-host وأنابيب JSON Lines، ويرسل setEffect/patch/transport/tool/view/quality بأرقام تسلسلية ويتيح callbacks لأحداث ready وemitterMoved وpick وstats وerror وخروج العملية. لم يُوصل بعد بـ`studio_imgui.py`، ومضيف pywebview الحالي لا يرحّل هذه الرسائل إلى JavaScript. |
 | `editor/particle_studio.py` | القيم الافتراضية والقوالب والتحقق ومحاكاة Python، والمنطق الذي تستخدمه واجهة Tk الاحتياطية. |
 | `editor/raster_view.py` و`render/gl_view.py` | يقدّمان مسار raster اختياريًا: GLFW/OpenGL يرسم خارج الشاشة ثم تُرفع صورة إلى DPG. يبقى رسم الخلفيات والأدلة والتفاعل في طبقة DPG. عند تعذر المسار أو عدم انطباقه يستمر الرسم بالـdrawlist. |
 | `core/particle_core.cpp` | تنفيذ C++ اختياري لمحاكاة الجسيمات. يستخدمه المحرر متى توفرت الوحدة الأصلية؛ توجد محاكاة Python كمسار احتياطي. |
@@ -95,7 +97,7 @@ Lempo-FX/
 1. `studio_imgui.py` يحدّث المحاكاة لكل إطار، باستخدام C++ عند توفره أو Python كبديل.
 2. إذا كان raster متاحًا وينطبق على المشهد، يرسم `raster_view.py` طبقة الجسيمات في صورة OpenGL؛ ثم يرسم DPG الأدلة وواجهات التحكم فوقها.
 3. عند عدم استخدام raster، يرسم DPG الجسيمات ومكونات المشهد عبر drawlist مباشرة. trails تظهر في طبقة الـviewport ولا تستخدم مسار raster نفسه.
-4. هذه هي الواجهة الحالية. `viewport_host.py` حاليًا spike مستقل لفتح نافذة pywebview، وليس جسرًا موصولًا بالمحرر أو بديلًا عن الـviewport القديم.
+4. هذه هي الواجهة الحالية. `viewport_host.py` حاليًا spike مستقل لفتح نافذة pywebview، وليس جسرًا موصولًا بالمحرر أو بديلًا عن الـviewport القديم. أضيف `viewport_bridge.py` لإدارة العملية وقناة JSON Lines، لكن ربط المضيف برسائل JavaScript وتوصيل الجسر بالواجهة ما زالا خطوتين تاليتين في Phase 3.
 
 ## 3) الإصدارات والعقود
 
