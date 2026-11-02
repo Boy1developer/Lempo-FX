@@ -1,6 +1,6 @@
 # بنية مشروع Lempo Particle Editor
 
-> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ اكتمل هيكل Python الأولي لجسر الـviewport في Phase 3، لكن مضيف pywebview لم يُفعّل بعد كمرحّل للرسائل ولم يُربط بالواجهة. اكتملت Phase 2، بما فيها HUD مرئي للإحصاءات والجودة التكيفية، واجتاز المحوّلان 100 تبديل فعلي في Chromium/WebGL بلا تسرب canvas أو HUD أو نمو مستمر في الموارد، مع ظهور trails في الوضعين.
+> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ اكتمل هيكل الجسر ومضيف pywebview في أول خطوتين من Phase 3، لكن الجسر لم يُربط بواجهة المحرر. يحمّل المضيف `preview/live_effect.html` ويمرّر JSON Lines إلى JavaScript عبر حدث `lempo-viewport-message`، ويعيد أحداث JavaScript إلى Python عبر `window.pywebview.api.send_message`. اكتملت Phase 2، بما فيها HUD مرئي للإحصاءات والجودة التكيفية، واجتاز المحوّلان 100 تبديل فعلي في Chromium/WebGL بلا تسرب canvas أو HUD أو نمو مستمر في الموارد، مع ظهور trails في الوضعين.
 
 ## 1) شجرة المشروع
 
@@ -12,7 +12,7 @@ Lempo-FX/
 │   ├── particle_studio.py       # منطق مشترك ومحرك Python وواجهة Tk الاحتياطية
 │   ├── raster_view.py           # يربط رندر OpenGL بصورة GPU داخل DPG عند كثافة الجسيمات
 │   ├── mesh_cache.py            # قراءة وتحضير النماذج المخصصة
-│   ├── viewport_host.py         # مضيف pywebview تجريبي عبر --viewport-host (Spike B)
+│   ├── viewport_host.py         # مضيف pywebview: يعرض صفحة المعاينة ويرحّل JSON Lines
 │   ├── trail_render.py          # حسابات رسم شرائط trails
 │   ├── trail_widgets.py         # محررات منحنيات وتدرجات trails
 │   └── trail_templates_ui.py    # واجهة قوالب trails
@@ -82,8 +82,9 @@ Lempo-FX/
 
 | المكوّن | المسؤولية الحالية |
 |---|---|
-| `editor/studio_imgui.py` | واجهة Dear PyGui، المحرر والـinspector، اختيار وضع 2D/3D، عرض الجسيمات، تفاعل الفأرة والاختصارات، undo/redo، التصدير، وكتابة التأثير للمعاينة. يبدأ كذلك مضيف Spike B عند تمرير `--viewport-host`. |
-| `editor/viewport_bridge.py` | يدير عملية viewport-host وأنابيب JSON Lines، ويرسل setEffect/patch/transport/tool/view/quality بأرقام تسلسلية ويتيح callbacks لأحداث ready وemitterMoved وpick وstats وerror وخروج العملية. لم يُوصل بعد بـ`studio_imgui.py`، ومضيف pywebview الحالي لا يرحّل هذه الرسائل إلى JavaScript. |
+| `editor/studio_imgui.py` | واجهة Dear PyGui، المحرر والـinspector، اختيار وضع 2D/3D، عرض الجسيمات، تفاعل الفأرة والاختصارات، undo/redo، التصدير، وكتابة التأثير للمعاينة. يمرّر `--viewport-host` إلى مضيف pywebview عند تشغيله كعملية فرعية. |
+| `editor/viewport_bridge.py` | يدير عملية viewport-host وأنابيب JSON Lines، ويرسل setEffect/patch/transport/tool/view/quality بأرقام تسلسلية ويتيح callbacks لأحداث ready وemitterMoved وpick وstats وerror وخروج العملية. لم يُوصل بعد بـ`studio_imgui.py`. |
+| `editor/viewport_host.py` | يحمّل `preview/live_effect.html` داخل pywebview، يمرر رسائل المحرر إلى حدث JavaScript `lempo-viewport-message`، ويكتب رسائل الصفحة القادمة عبر `window.pywebview.api.send_message` إلى stdout بصيغة JSON Lines. يراقب EOF على stdin ويغلق النافذة عند انتهاء عملية المحرر. |
 | `editor/particle_studio.py` | القيم الافتراضية والقوالب والتحقق ومحاكاة Python، والمنطق الذي تستخدمه واجهة Tk الاحتياطية. |
 | `editor/raster_view.py` و`render/gl_view.py` | يقدّمان مسار raster اختياريًا: GLFW/OpenGL يرسم خارج الشاشة ثم تُرفع صورة إلى DPG. يبقى رسم الخلفيات والأدلة والتفاعل في طبقة DPG. عند تعذر المسار أو عدم انطباقه يستمر الرسم بالـdrawlist. |
 | `core/particle_core.cpp` | تنفيذ C++ اختياري لمحاكاة الجسيمات. يستخدمه المحرر متى توفرت الوحدة الأصلية؛ توجد محاكاة Python كمسار احتياطي. |
@@ -97,7 +98,7 @@ Lempo-FX/
 1. `studio_imgui.py` يحدّث المحاكاة لكل إطار، باستخدام C++ عند توفره أو Python كبديل.
 2. إذا كان raster متاحًا وينطبق على المشهد، يرسم `raster_view.py` طبقة الجسيمات في صورة OpenGL؛ ثم يرسم DPG الأدلة وواجهات التحكم فوقها.
 3. عند عدم استخدام raster، يرسم DPG الجسيمات ومكونات المشهد عبر drawlist مباشرة. trails تظهر في طبقة الـviewport ولا تستخدم مسار raster نفسه.
-4. هذه هي الواجهة الحالية. `viewport_host.py` حاليًا spike مستقل لفتح نافذة pywebview، وليس جسرًا موصولًا بالمحرر أو بديلًا عن الـviewport القديم. أضيف `viewport_bridge.py` لإدارة العملية وقناة JSON Lines، لكن ربط المضيف برسائل JavaScript وتوصيل الجسر بالواجهة ما زالا خطوتين تاليتين في Phase 3.
+4. هذه هي الواجهة الحالية. `viewport_host.py` صار قادرًا على فتح صفحة المعاينة وتمرير الرسائل عبر JSON Lines وأحداث JavaScript، و`viewport_bridge.py` يدير العملية والقناة من جهة Python؛ لم يُربط المسار بعد بـ`studio_imgui.py` ولم يصبح بديلًا عن الـviewport القديم.
 
 ## 3) الإصدارات والعقود
 
@@ -127,7 +128,7 @@ python tools/rebuild_app.py
 ## 5) القياس وخطة ترحيل الـviewport
 
 - `tools/spike_viewport_bridge.py`: تشغيل DPG مع عملية pywebview فرعية وقياس round-trip JSON Lines. نتيجة Spike A: وسيط `0.259 ms` وp95 `31.046 ms` من 100 عينة.
-- `editor/viewport_host.py`: إثبات تشغيل مضيف EdgeChromium من نسخة PyInstaller عبر `--viewport-host` (Spike B). لا يرحّل هذا المسار بيانات الواجهة بعد.
+- `editor/viewport_host.py`: مضيف EdgeChromium عبر `--viewport-host`، يعرض صفحة المعاينة ويرحّل رسائل JSON Lines ثنائي الاتجاه؛ يتطلب WebView2 على Windows.
 - `bench/bench_current_viewport.py`: يعيد قياس القوالب الأربعة في وضعَي 2D و3D، ويكتب إلى `bench/baseline-viewport.json`. خط الأساس الحالي: p50 للإطار `16.528–16.560 ms` وp95 `16.814–17.077 ms` على الجهاز المسجل داخل ملف JSON.
 - Dear PyGui لا يوفّر عداد GPU draw calls؛ لذلك `draw_calls` في خط الأساس `null` وعدد drawlist commands مجرد proxy موضح في التقرير.
 - مراحل نقل الـviewport والتوافق والأداء المتبقية موثقة في `LEMPO_VIEWPORT_MIGRATION_PLAN.md`، ونتائج الاستكشاف في `docs/viewport-migration-notes.md`.

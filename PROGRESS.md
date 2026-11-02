@@ -307,3 +307,9 @@ Rebuild after 2D zoom fix: REBUILD_OK 26.4 MB smoke True.
 - Added typed convenience methods for `setEffect`, `patch`, transport actions, tool/view/quality changes, plus `ready`, `emitterMoved`, `pick`, `stats`, `error`, and process-exit subscriptions. Shutdown requests host exit, closes the input stream, then waits and terminates/kills the child if needed.
 - Updated `APP_STRUCTURE.md` and `README.md` to show the new bridge scaffold and its current boundary: `viewport_host.py` is still the standalone Spike B host and has not yet been wired to JavaScript or the Dear PyGui editor. No host relay or editor feature-flag integration was included in this task.
 - No test suites or application rebuild were run for this step.
+
+## Viewport migration — Phase 3, Task 2 (2026-11-02, main)
+- Replaced the Spike B placeholder in `editor/viewport_host.py` with the actual pywebview host. It loads the bundled `preview/live_effect.html` from the source root or PyInstaller bundle and exposes a JavaScript API for page-to-editor JSON messages.
+- Editor-to-page JSON Lines messages are parsed on a stdin worker and delivered through `window.__lempoViewportReceive()` as `lempo-viewport-message` events. The host sends a `ready` event with renderer/version/WebGL2 information after page load; stdout remains reserved for protocol JSON, with diagnostics sent to stderr.
+- Added clean shutdown for the explicit `shutdown` message, parent stdin EOF, and user window close. Updated `README.md` and `APP_STRUCTURE.md`; Phase 3 feature-flag wiring and making the viewport controller consume these events remain outstanding.
+- `git diff --check` passed. No test suites or application rebuild were run for this step.
