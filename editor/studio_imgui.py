@@ -15,6 +15,7 @@ import copy
 import json
 import math
 import os
+import queue
 import random
 import sys
 import threading
@@ -50,6 +51,10 @@ except Exception:
 
 BUILD_ID = getattr(PS, "BUILD_ID", "b-imgui") + "-imgui"
 APP_VERSION = getattr(PS, "APP_VERSION", "?")
+VIEWPORT_MODE = os.environ.get("LEMPO_VIEWPORT", "legacy").strip().lower()
+if VIEWPORT_MODE not in {"legacy", "web"}:
+    PS.debug_log("viewport-mode-invalid", VIEWPORT_MODE, "using legacy")
+    VIEWPORT_MODE = "legacy"
 
 # ---------- ImGui dark theme (matches Tk palette) ----------
 BG = (26, 27, 34)
@@ -593,6 +598,11 @@ class App:
         self._last_push = 0.0
         self._status = "Ready"
         self._status_col = OK
+        self._viewport_bridge = None
+        self._viewport_events = queue.Queue()
+        self._viewport_closing = False
+        self._viewport_stats = None
+        self._viewport_last_emitter = None
         self._fps = 60
         self._n_show = 0
         self._cpp_active = False
@@ -1948,6 +1958,75 @@ APP._drag_kind = None
 APP.side_w = 320
 APP._split = None
 APP._split_hover = False
+
+
+def start_web_viewport():
+    """Start the opt-in web viewport and seed it with the current effect."""
+    if VIEWPORT_MODE != "web" or APP._viewport_bridge is not None:
+        return
+    bridge = None
+    try:
+        from viewport_bridge import ViewportBridge
+
+        bridge = ViewportBridge()
+        APP._viewport_bridge = bridge
+        for event in ("ready", "emitterMoved", "pick", "stats", "error", "exit"):
+            bridge.on(event, lambda message, name=event:
+                      APP._viewport_events.put((name, message)))
+        bridge.start()
+        effect = gather()
+        model_blobs = PS.model_blobs_for_states(APP.states)
+        if model_blobs:
+            effect["modelsData"] = model_blobs
+        bridge.set_effect(effect)
+        APP.set_status("Web viewport starting…", MUTED)
+        PS.debug_log("viewport-web-started", bridge.process.pid if bridge.process else "?")
+    except Exception as exc:
+        PS.debug_log("viewport-web-start-failed", str(exc)[:300])
+        APP._viewport_bridge = None
+        if bridge is not None:
+            try:
+                bridge.shutdown()
+            except Exception:
+                pass
+        APP.set_status(f"Web viewport failed: {exc}", WARN)
+
+
+def stop_web_viewport():
+    bridge = APP._viewport_bridge
+    if bridge is None:
+        return
+    APP._viewport_closing = True
+    APP._viewport_bridge = None
+    try:
+        bridge.shutdown()
+    except Exception as exc:
+        PS.debug_log("viewport-web-shutdown-failed", str(exc)[:300])
+
+
+def _drain_viewport_events():
+    events = APP._viewport_events
+    while True:
+        try:
+            event, message = events.get_nowait()
+        except queue.Empty:
+            return
+        if event == "ready":
+            APP.set_status("Web viewport ready", OK)
+            PS.debug_log("viewport-web-ready", message)
+        elif event == "error":
+            detail = str(message.get("message", "Unknown viewport error"))[:160]
+            APP.set_status("Web viewport: " + detail, WARN)
+            PS.debug_log("viewport-web-error", detail)
+        elif event == "emitterMoved":
+            APP._viewport_last_emitter = message
+        elif event == "stats":
+            APP._viewport_stats = message
+        elif event == "pick":
+            APP._viewport_selection = message
+        elif event == "exit" and not APP._viewport_closing:
+            APP.set_status("Web viewport closed", WARN)
+            PS.debug_log("viewport-web-exit", message)
 
 
 def show_msg(title, text):
@@ -4439,6 +4518,7 @@ def handle_keys():
 def frame():
     t0 = time.time()
     try:
+        _drain_viewport_events()
         dt = min(0.05, max(1e-3, t0 - APP.sim.last_t))
         APP.sim.last_t = t0
         eff = APP.cached_effect()
@@ -4743,6 +4823,7 @@ def main():
     dpg.setup_dearpygui()
     dpg.show_viewport()
     APP._t_start = time.time()
+    start_web_viewport()
     smoke = 0
     if "--smoke" in sys.argv:
         try:
@@ -4750,14 +4831,17 @@ def main():
         except (ValueError, IndexError):
             smoke = 60
     n = 0
-    while dpg.is_dearpygui_running():
-        frame()
-        dpg.render_dearpygui_frame()
-        n += 1
-        if smoke and n >= smoke:
-            print(f"SMOKE-OK frames={n} parts={APP._n_show} fps={APP._fps}")
-            break
-    dpg.destroy_context()
+    try:
+        while dpg.is_dearpygui_running():
+            frame()
+            dpg.render_dearpygui_frame()
+            n += 1
+            if smoke and n >= smoke:
+                print(f"SMOKE-OK frames={n} parts={APP._n_show} fps={APP._fps}")
+                break
+    finally:
+        stop_web_viewport()
+        dpg.destroy_context()
 
 
 if __name__ == "__main__":

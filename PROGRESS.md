@@ -313,3 +313,9 @@ Rebuild after 2D zoom fix: REBUILD_OK 26.4 MB smoke True.
 - Editor-to-page JSON Lines messages are parsed on a stdin worker and delivered through `window.__lempoViewportReceive()` as `lempo-viewport-message` events. The host sends a `ready` event with renderer/version/WebGL2 information after page load; stdout remains reserved for protocol JSON, with diagnostics sent to stderr.
 - Added clean shutdown for the explicit `shutdown` message, parent stdin EOF, and user window close. Updated `README.md` and `APP_STRUCTURE.md`; Phase 3 feature-flag wiring and making the viewport controller consume these events remain outstanding.
 - `git diff --check` passed. No test suites or application rebuild were run for this step.
+
+## Viewport migration — Phase 3, Task 3 (2026-11-02, main)
+- Added the `LEMPO_VIEWPORT` startup flag to `editor/studio_imgui.py`. It accepts `web` or `legacy`, defaults to `legacy`, and safely falls back to legacy for any other value.
+- With `LEMPO_VIEWPORT=web`, the editor starts `ViewportBridge` after the Dear PyGui UI is ready, sends the current effect (including custom model blobs), and queues host callbacks for safe handling on the UI frame thread. Ready/error/exit update the editor status; stats, pick, and emitter-move events are retained for later UX wiring.
+- The bridge shuts down in the editor loop's `finally` path, including smoke exits. The legacy drawlist and `last_effect.json` writer remain active; live inspector patching and switching the rendered viewport are not part of this step.
+- Updated `README.md` and `APP_STRUCTURE.md` for the feature flag and current integration boundary. No test suites or application rebuild were run for this step.

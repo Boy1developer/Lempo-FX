@@ -125,7 +125,7 @@ These changes belong to the [viewport migration](docs/viewport-migration-notes.m
 
 - **Shared browser-preview simulation** *(Phase 1)* — the Three.js, PixiJS and Canvas adapters consume one renderer-agnostic TypeScript engine (`lempo-runtime/`) and its reusable typed-array particle frames; they do not each implement their own simulation. Seeded 120-frame regression snapshots check that preview behavior is preserved.
 - **Viewport adapters** *(Phase 2)* — contract-based `ThreeViewport` and `PixiViewport`, switchable through `ViewportController.setMode()`, with adaptive quality, persisted manual quality, and a live stats HUD. The controller owns the preview's animation-frame loop (Pixi's automatic ticker is disabled). Both paths passed a 100-cycle Chromium/WebGL lifecycle check, and Three's instanced and pooled classic fallback paths are exercised.
-- **Python bridge foundation** *(Phase 3, started)* — `ViewportBridge` launches the pywebview host, which loads the self-contained preview and relays sequenced JSON Lines to JavaScript events and back. The Dear PyGui editor remains on the legacy viewport until feature-flag integration and inspector wiring are complete.
+- **Python bridge foundation** *(Phase 3, started)* — set `LEMPO_VIEWPORT=web` to launch the pywebview host from the editor and send it the initial effect; the default remains `legacy`. The host relays sequenced JSON Lines to JavaScript events and back. Live inspector updates and gizmo feedback are still planned Phase 3 work.
 - **Renderer versions** — the preview pins Three.js `0.185.1`, matching GDevelop 5.6.284. Browser PixiJS `8.21` is still a different major from GDevelop's `7.4.2`; the compatibility difference is documented in the [migration notes](docs/viewport-migration-notes.md).
 - **Still open** — the GDevelop extension keeps its own simulation, so particle-record parity between the browser preview and the game runtime is not complete yet.
 
@@ -284,10 +284,10 @@ CI runs the parity, behavior, and contract checks on every push (`.github/workfl
 **Done in `main` — not released yet** 🚧
 - [x] Shared TypeScript engine for browser-preview renderers, typed-array handoff, and seeded frame-by-frame regression checks *(viewport migration Phase 1)*
 - [x] `ThreeViewport` / `PixiViewport` adapters with `ViewportController`, adaptive quality, and a live stats HUD *(viewport migration Phase 2)*
-- [x] Python `ViewportBridge` scaffold with sequenced JSON Lines messages/events *(viewport migration Phase 3, started)*
+- [x] Python viewport host and `LEMPO_VIEWPORT=web` startup flag *(viewport migration Phase 3, started; inspector sync remains open)*
 
 **Planned**
-- [ ] Finish the Python bridge: feature-flag editor integration and inspector wiring *(Phase 3)*
+- [ ] Finish the Python bridge: relay inspector edits and gizmo feedback through the feature-flagged host *(Phase 3)*
 - [ ] Match the legacy viewport's guides, gizmo, 2D zoom, trails, state colors, and shape morph in the new viewport *(Phase 4)*
 - [ ] Golden-image tests (editor render vs browser preview) and benchmark gates *(Phase 5)*
 - [ ] Retire the legacy viewport paths once parity is proven *(Phase 6)*
