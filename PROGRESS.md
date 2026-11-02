@@ -325,3 +325,8 @@ Rebuild after 2D zoom fix: REBUILD_OK 26.4 MB smoke True.
 - Structural changes (object keys/array lengths), renderer mode changes, and custom model-data changes send a full `setEffect`. Model bytes are refreshed only when the model fingerprint changes.
 - Changed the existing history idle commit to wait until the left mouse button is released, then commit once after a short quiet interval. The 100-snapshot undo/redo limit is unchanged; undo and redo also mark the bridge state dirty without creating an extra history entry.
 - Updated `README.md` and `APP_STRUCTURE.md`. No test suites or application rebuild were run for this step.
+
+## Viewport migration — Phase 3, Task 5 (2026-11-02, main)
+- Changed the web host URL to enable bridge mode and updated `preview/main.ts` to consume `setEffect` and JSON Pointer `patch` messages from `lempo-viewport-message`. Patch operations update the current effect and reload the preview engine; a bounded host-side message queue covers the page-listener startup boundary.
+- Bridge-mode pages no longer poll `last_effect.json`; normal browser previews retain their 500 ms polling. In the editor frame loop, recurring `last_effect.json` writes now run only in `legacy` mode, while `web` mode sends effect diffs through the throttled bridge from Task 4.
+- The host page is rebuilt with the current boot effect before the child starts, so the new self-contained bundle is ready immediately. Regenerated `preview/main.js` and `preview/live_bundle.js` with `python tools/build_preview.py` (`PREVIEW-BUILD-OK`). No test suites or application rebuild were run.

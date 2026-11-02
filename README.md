@@ -125,7 +125,7 @@ These changes belong to the [viewport migration](docs/viewport-migration-notes.m
 
 - **Shared browser-preview simulation** *(Phase 1)* — the Three.js, PixiJS and Canvas adapters consume one renderer-agnostic TypeScript engine (`lempo-runtime/`) and its reusable typed-array particle frames; they do not each implement their own simulation. Seeded 120-frame regression snapshots check that preview behavior is preserved.
 - **Viewport adapters** *(Phase 2)* — contract-based `ThreeViewport` and `PixiViewport`, switchable through `ViewportController.setMode()`, with adaptive quality, persisted manual quality, and a live stats HUD. The controller owns the preview's animation-frame loop (Pixi's automatic ticker is disabled). Both paths passed a 100-cycle Chromium/WebGL lifecycle check, and Three's instanced and pooled classic fallback paths are exercised.
-- **Python bridge foundation** *(Phase 3, started)* — set `LEMPO_VIEWPORT=web` to launch the pywebview host from the editor; the default remains `legacy`. Inspector changes are diffed into JSON Pointer patches, coalesced, and sent at up to 30 messages/s; structural changes use a full effect load. Undo/redo retains its 100-state limit and slider edits commit after mouse release. Replacing legacy file polling and wiring viewport feedback remain Phase 3 work.
+- **Python viewport bridge** *(Phase 3, in progress)* — set `LEMPO_VIEWPORT=web` to launch the pywebview host from the editor; the default remains `legacy`. Inspector changes are diffed into JSON Pointer patches, coalesced, and sent at up to 30 messages/s; structural changes use a full effect load. The web page consumes bridge setEffect/patch messages without polling `last_effect.json`; the file remains live for legacy preview mode. Undo/redo retains its 100-state limit and slider edits commit after mouse release.
 - **Renderer versions** — the preview pins Three.js `0.185.1`, matching GDevelop 5.6.284. Browser PixiJS `8.21` is still a different major from GDevelop's `7.4.2`; the compatibility difference is documented in the [migration notes](docs/viewport-migration-notes.md).
 - **Still open** — the GDevelop extension keeps its own simulation, so particle-record parity between the browser preview and the game runtime is not complete yet.
 
@@ -284,10 +284,9 @@ CI runs the parity, behavior, and contract checks on every push (`.github/workfl
 **Done in `main` — not released yet** 🚧
 - [x] Shared TypeScript engine for browser-preview renderers, typed-array handoff, and seeded frame-by-frame regression checks *(viewport migration Phase 1)*
 - [x] `ThreeViewport` / `PixiViewport` adapters with `ViewportController`, adaptive quality, and a live stats HUD *(viewport migration Phase 2)*
-- [x] Feature-flagged bridge, coalesced editor patches, and release-based undo grouping *(viewport migration Phase 3; polling replacement remains open)*
+- [x] Feature-flagged bridge, coalesced editor patches, release-based undo grouping, and web-mode message handling *(viewport migration Phase 3)*
 
 **Planned**
-- [ ] Replace `last_effect.json` polling with bridge message handling in web mode *(Phase 3)*
 - [ ] Apply gizmo feedback in the inspector and handle viewport close/reopen UX *(Phase 3)*
 - [ ] Match the legacy viewport's guides, gizmo, 2D zoom, trails, state colors, and shape morph in the new viewport *(Phase 4)*
 - [ ] Golden-image tests (editor render vs browser preview) and benchmark gates *(Phase 5)*

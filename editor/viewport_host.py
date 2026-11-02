@@ -100,7 +100,7 @@ def run_viewport_host() -> int:
     api = _HostAPI(write_message)
     window = webview.create_window(
         "Lempo Particle Editor — Viewport",
-        url=page.resolve().as_uri(),
+        url=page.resolve().as_uri() + "?transport=bridge",
         js_api=api,
         width=1100,
         height=760,
@@ -130,13 +130,14 @@ def run_viewport_host() -> int:
     api._request_close = request_close
 
     def on_loaded(*_args: Any) -> None:
-        # Establish a stable event surface for the viewport bundle. Future
-        # browser code can listen for lempo-viewport-message and call
-        # window.pywebview.api.send_message(message) for events back to Python.
+        # Establish a stable event surface for the viewport bundle. The page
+        # listens for lempo-viewport-message and can send events to Python via
+        # window.pywebview.api.send_message(message).
         bridge_init = """(() => {
           const pending = [];
           window.__lempoViewportMessages = pending;
           window.__lempoViewportReceive = (message) => {
+            if (pending.length >= 64) pending.shift();
             pending.push(message);
             window.dispatchEvent(new CustomEvent('lempo-viewport-message', { detail: message }));
           };

@@ -1986,6 +1986,27 @@ def _viewport_effect_payload(effect):
     return payload, models_changed
 
 
+def _prepare_web_viewport_page(effect):
+    """Rebuild the self-contained host page with the current boot effect."""
+    preview_dir = os.path.join(PS.app_base_dir(), "preview")
+    with open(os.path.join(preview_dir, "preview.html"), encoding="utf-8") as f:
+        template = f.read()
+    with open(os.path.join(preview_dir, "live_bundle.js"), encoding="utf-8") as f:
+        bundle = f.read()
+    boot = json.dumps(effect, ensure_ascii=False).replace("</", "<\\/")
+    page = template.replace(
+        '<script type="module" src="./main.js"></script>',
+        '<script type="module">\n' + bundle + "\n</script>", 1)
+    page = page.replace(
+        '<script id="boot-effect" type="application/json"></script>',
+        '<script id="boot-effect" type="application/json">' + boot + "</script>", 1)
+    if page == template or "__previewBooted" not in page:
+        raise ValueError("Preview template markers are missing")
+    with open(os.path.join(preview_dir, "live_effect.html"), "w",
+              encoding="utf-8") as f:
+        f.write(page)
+
+
 def _viewport_effect_diff(previous, current, path=""):
     """Return JSON Pointer leaf patches and whether a full reload is required."""
     if isinstance(previous, dict) and isinstance(current, dict):
@@ -2024,13 +2045,14 @@ def start_web_viewport():
     try:
         from viewport_bridge import ViewportBridge
 
+        effect, _models_changed = _viewport_effect_payload(gather())
+        _prepare_web_viewport_page(effect)
         bridge = ViewportBridge()
         APP._viewport_bridge = bridge
         for event in ("ready", "emitterMoved", "pick", "stats", "error", "exit"):
             bridge.on(event, lambda message, name=event:
                       APP._viewport_events.put((name, message)))
         bridge.start()
-        effect, _models_changed = _viewport_effect_payload(gather())
         bridge.set_effect(effect)
         APP._viewport_last_effect = copy.deepcopy(effect)
         APP._viewport_dirty = False
@@ -4870,7 +4892,8 @@ def frame():
             APP._need_commit = False
             APP.history_commit()
         flush_web_viewport_patches(now=now)
-        if APP._live_push_on and now - APP._last_push > 0.5:
+        if APP._live_push_on and VIEWPORT_MODE == "legacy" and \
+                now - APP._last_push > 0.5:
             APP._last_push = now
             try:
                 ce = APP.current_effect()
