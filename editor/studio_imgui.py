@@ -603,6 +603,11 @@ class App:
         self._viewport_closing = False
         self._viewport_stats = None
         self._viewport_last_emitter = None
+        self._viewport_dirty = False
+        self._viewport_last_effect = None
+        self._viewport_patch_pending = {}
+        self._viewport_patch_last_sent = 0.0
+        self._viewport_models_data = None
         self._fps = 60
         self._n_show = 0
         self._cpp_active = False
@@ -849,12 +854,18 @@ class App:
         if self._hidx > 0:
             self._hidx -= 1
             self.history_restore(self._history[self._hidx][1])
+            self._dirty = True
+            self._viewport_dirty = True
+            self._need_commit = False
             self.set_status("Undo", MUTED)
 
     def redo(self):
         if self._hidx < len(self._history) - 1:
             self._hidx += 1
             self.history_restore(self._history[self._hidx][1])
+            self._dirty = True
+            self._viewport_dirty = True
+            self._need_commit = False
             self.set_status("Redo", MUTED)
 
     def set_status(self, text, col=OK):
@@ -1960,6 +1971,51 @@ APP._split = None
 APP._split_hover = False
 
 
+def _viewport_effect_payload(effect):
+    """Attach model bytes only when their source data changes."""
+    fingerprint = PS.model_fingerprint(APP.states)
+    models_changed = fingerprint != APP._models_fp
+    if models_changed:
+        APP._models_fp = fingerprint
+        APP._viewport_models_data = PS.model_blobs_for_states(APP.states)
+    payload = copy.deepcopy(effect)
+    if APP._viewport_models_data:
+        payload["modelsData"] = copy.deepcopy(APP._viewport_models_data)
+    else:
+        payload.pop("modelsData", None)
+    return payload, models_changed
+
+
+def _viewport_effect_diff(previous, current, path=""):
+    """Return JSON Pointer leaf patches and whether a full reload is required."""
+    if isinstance(previous, dict) and isinstance(current, dict):
+        if previous.keys() != current.keys():
+            return [], True
+        ops = []
+        for key in current:
+            child = path + "/" + str(key).replace("~", "~0").replace("/", "~1")
+            child_ops, structural = _viewport_effect_diff(
+                previous[key], current[key], child)
+            if structural:
+                return [], True
+            ops.extend(child_ops)
+        return ops, False
+    if isinstance(previous, list) and isinstance(current, list):
+        if len(previous) != len(current):
+            return [], True
+        ops = []
+        for index, (old_value, new_value) in enumerate(zip(previous, current)):
+            child_ops, structural = _viewport_effect_diff(
+                old_value, new_value, path + "/" + str(index))
+            if structural:
+                return [], True
+            ops.extend(child_ops)
+        return ops, False
+    if previous != current:
+        return [{"path": path, "value": copy.deepcopy(current)}], False
+    return [], False
+
+
 def start_web_viewport():
     """Start the opt-in web viewport and seed it with the current effect."""
     if VIEWPORT_MODE != "web" or APP._viewport_bridge is not None:
@@ -1974,11 +2030,12 @@ def start_web_viewport():
             bridge.on(event, lambda message, name=event:
                       APP._viewport_events.put((name, message)))
         bridge.start()
-        effect = gather()
-        model_blobs = PS.model_blobs_for_states(APP.states)
-        if model_blobs:
-            effect["modelsData"] = model_blobs
+        effect, _models_changed = _viewport_effect_payload(gather())
         bridge.set_effect(effect)
+        APP._viewport_last_effect = copy.deepcopy(effect)
+        APP._viewport_dirty = False
+        APP._viewport_patch_pending.clear()
+        APP._viewport_patch_last_sent = time.time()
         APP.set_status("Web viewport starting…", MUTED)
         PS.debug_log("viewport-web-started", bridge.process.pid if bridge.process else "?")
     except Exception as exc:
@@ -1990,6 +2047,45 @@ def start_web_viewport():
             except Exception:
                 pass
         APP.set_status(f"Web viewport failed: {exc}", WARN)
+
+
+def flush_web_viewport_patches(effect=None, now=None):
+    """Diff editor state and send coalesced patches at no more than 30 Hz."""
+    bridge = APP._viewport_bridge
+    if VIEWPORT_MODE != "web" or bridge is None or not APP._viewport_dirty:
+        return
+    now = time.time() if now is None else now
+    try:
+        effect = effect if effect is not None else APP.cached_effect()
+        if effect is None:
+            return
+        current, models_changed = _viewport_effect_payload(effect)
+        previous = APP._viewport_last_effect
+        if previous is None:
+            bridge.set_effect(current)
+            APP._viewport_last_effect = copy.deepcopy(current)
+            APP._viewport_patch_pending.clear()
+            APP._viewport_patch_last_sent = now
+            APP._viewport_dirty = False
+            return
+        ops, structural = _viewport_effect_diff(previous, current)
+        structural = structural or models_changed or previous.get("type") != current.get("type")
+        APP._viewport_last_effect = copy.deepcopy(current)
+        APP._viewport_dirty = False
+        if structural:
+            bridge.set_effect(current)
+            APP._viewport_patch_pending.clear()
+            APP._viewport_patch_last_sent = now
+            return
+        for op in ops:
+            APP._viewport_patch_pending[op["path"]] = op
+        if APP._viewport_patch_pending and \
+                now - APP._viewport_patch_last_sent >= (1.0 / 30.0):
+            bridge.patch(list(APP._viewport_patch_pending.values()))
+            APP._viewport_patch_pending.clear()
+            APP._viewport_patch_last_sent = now
+    except Exception as exc:
+        PS.debug_log("viewport-web-patch-failed", str(exc)[:300])
 
 
 def stop_web_viewport():
@@ -2374,6 +2470,7 @@ _orig_mark = App.mark_dirty
 def _mark_dirty2(self):
     _orig_mark(self)
     self._need_commit = True
+    self._viewport_dirty = True
 
 
 App.mark_dirty = _mark_dirty2
@@ -4764,10 +4861,15 @@ def frame():
             PS.debug_log("IMG-TICK-EXC",
                          traceback.format_exc().replace("\n", " | ")[:1000])
         now = time.time()
-        if getattr(APP, "_need_commit", False) and \
-                now - APP._last_edit > 0.8 and not APP._restoring:
+        try:
+            edit_button_down = dpg.is_mouse_button_down(dpg.mvMouseButton_Left)
+        except Exception:
+            edit_button_down = False
+        if getattr(APP, "_need_commit", False) and not edit_button_down and \
+                now - APP._last_edit > 0.12 and not APP._restoring:
             APP._need_commit = False
             APP.history_commit()
+        flush_web_viewport_patches(now=now)
         if APP._live_push_on and now - APP._last_push > 0.5:
             APP._last_push = now
             try:

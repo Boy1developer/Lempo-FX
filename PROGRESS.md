@@ -319,3 +319,9 @@ Rebuild after 2D zoom fix: REBUILD_OK 26.4 MB smoke True.
 - With `LEMPO_VIEWPORT=web`, the editor starts `ViewportBridge` after the Dear PyGui UI is ready, sends the current effect (including custom model blobs), and queues host callbacks for safe handling on the UI frame thread. Ready/error/exit update the editor status; stats, pick, and emitter-move events are retained for later UX wiring.
 - The bridge shuts down in the editor loop's `finally` path, including smoke exits. The legacy drawlist and `last_effect.json` writer remain active; live inspector patching and switching the rendered viewport are not part of this step.
 - Updated `README.md` and `APP_STRUCTURE.md` for the feature flag and current integration boundary. No test suites or application rebuild were run for this step.
+
+## Viewport migration — Phase 3, Task 4 (2026-11-02, main)
+- Added JSON Pointer diffing between the last editor effect and the current effect. Leaf edits are coalesced by path and sent through `ViewportBridge.patch()` at no more than 30 messages per second; the newest value wins while a patch is pending.
+- Structural changes (object keys/array lengths), renderer mode changes, and custom model-data changes send a full `setEffect`. Model bytes are refreshed only when the model fingerprint changes.
+- Changed the existing history idle commit to wait until the left mouse button is released, then commit once after a short quiet interval. The 100-snapshot undo/redo limit is unchanged; undo and redo also mark the bridge state dirty without creating an extra history entry.
+- Updated `README.md` and `APP_STRUCTURE.md`. No test suites or application rebuild were run for this step.

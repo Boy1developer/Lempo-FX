@@ -1,6 +1,6 @@
 # بنية مشروع Lempo Particle Editor
 
-> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ يمكن تشغيل مضيف الـviewport تجريبيًا عبر `LEMPO_VIEWPORT=web`، بينما `legacy` هو الوضع الافتراضي. عند تفعيل web يبدأ `ViewportBridge` ويرسل التأثير الحالي للمضيف، لكن تحديثات inspector الحية ما زالت ضمن خطوات Phase 3 اللاحقة. يحمّل المضيف `preview/live_effect.html` ويمرّر JSON Lines إلى JavaScript عبر حدث `lempo-viewport-message`، ويعيد أحداث JavaScript إلى Python عبر `window.pywebview.api.send_message`. اكتملت Phase 2، بما فيها HUD مرئي للإحصاءات والجودة التكيفية، واجتاز المحوّلان 100 تبديل فعلي في Chromium/WebGL بلا تسرب canvas أو HUD أو نمو مستمر في الموارد، مع ظهور trails في الوضعين.
+> وصف للبنية الموجودة حاليًا. واجهة المحرر الأساسية ما زالت Dear PyGui؛ يمكن تشغيل مضيف الـviewport تجريبيًا عبر `LEMPO_VIEWPORT=web`، بينما `legacy` هو الوضع الافتراضي. عند تفعيل web يبدأ `ViewportBridge` ويرسل التأثير الحالي، ثم يجمع فروق JSON Pointer ويرسل patches بمعدل أقصى 30 رسالة/ثانية، مع إعادة تحميل كاملة عند التغييرات البنيوية. تجميع undo/redo يحتفظ بحد 100 حالة ويثبّت تعديل السحب بعد إفلات زر الفأرة. المزامنة الحية لم تتحول بعد بالكامل من `last_effect.json`. يحمّل المضيف `preview/live_effect.html` ويمرّر JSON Lines إلى JavaScript عبر حدث `lempo-viewport-message`، ويعيد أحداث JavaScript إلى Python عبر `window.pywebview.api.send_message`. اكتملت Phase 2، بما فيها HUD مرئي للإحصاءات والجودة التكيفية، واجتاز المحوّلان 100 تبديل فعلي في Chromium/WebGL بلا تسرب canvas أو HUD أو نمو مستمر في الموارد، مع ظهور trails في الوضعين.
 
 ## 1) شجرة المشروع
 
@@ -83,7 +83,7 @@ Lempo-FX/
 | المكوّن | المسؤولية الحالية |
 |---|---|
 | `editor/studio_imgui.py` | واجهة Dear PyGui، المحرر والـinspector، اختيار وضع 2D/3D، عرض الجسيمات، تفاعل الفأرة والاختصارات، undo/redo، والتصدير. يحافظ على كتابة `last_effect.json` للمعاينة القديمة، ويمكنه تشغيل `ViewportBridge` وإرسال التأثير الأولي عند ضبط `LEMPO_VIEWPORT=web`؛ الوضع الافتراضي `legacy`. يمرّر `--viewport-host` إلى المضيف عند تشغيله كعملية فرعية. |
-| `editor/viewport_bridge.py` | يدير عملية viewport-host وأنابيب JSON Lines، ويرسل setEffect/patch/transport/tool/view/quality بأرقام تسلسلية ويتيح callbacks لأحداث ready وemitterMoved وpick وstats وerror وخروج العملية. لم يُوصل بعد بـ`studio_imgui.py`. |
+| `editor/viewport_bridge.py` | يدير عملية viewport-host وأنابيب JSON Lines، ويرسل setEffect/patch/transport/tool/view/quality بأرقام تسلسلية ويتيح callbacks لأحداث ready وemitterMoved وpick وstats وerror وخروج العملية. يستدعيه `studio_imgui.py` خلف `LEMPO_VIEWPORT=web`؛ patches التجميعية محدودة بـ30 رسالة/ثانية. |
 | `editor/viewport_host.py` | يحمّل `preview/live_effect.html` داخل pywebview، يمرر رسائل المحرر إلى حدث JavaScript `lempo-viewport-message`، ويكتب رسائل الصفحة القادمة عبر `window.pywebview.api.send_message` إلى stdout بصيغة JSON Lines. يراقب EOF على stdin ويغلق النافذة عند انتهاء عملية المحرر. |
 | `editor/particle_studio.py` | القيم الافتراضية والقوالب والتحقق ومحاكاة Python، والمنطق الذي تستخدمه واجهة Tk الاحتياطية. |
 | `editor/raster_view.py` و`render/gl_view.py` | يقدّمان مسار raster اختياريًا: GLFW/OpenGL يرسم خارج الشاشة ثم تُرفع صورة إلى DPG. يبقى رسم الخلفيات والأدلة والتفاعل في طبقة DPG. عند تعذر المسار أو عدم انطباقه يستمر الرسم بالـdrawlist. |
