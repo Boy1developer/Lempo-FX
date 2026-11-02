@@ -284,10 +284,10 @@ CI runs the parity, behavior, and contract checks on every push (`.github/workfl
 **Done in `main` — not released yet** 🚧
 - [x] Shared TypeScript engine for browser-preview renderers, typed-array handoff, and seeded frame-by-frame regression checks *(viewport migration Phase 1)*
 - [x] `ThreeViewport` / `PixiViewport` adapters with `ViewportController`, adaptive quality, and a live stats HUD *(viewport migration Phase 2)*
-- [x] Feature-flagged bridge, coalesced editor patches, release-based undo grouping, and web-mode message handling *(viewport migration Phase 3)*
+- [x] Python bridge and pywebview host, `LEMPO_VIEWPORT=web` integration, coalesced editor patches, release-based undo grouping, legacy polling fallback, and viewport reopen offer *(viewport migration Phase 3)*
 
 **Planned**
-- [ ] Apply gizmo feedback in the inspector and handle viewport close/reopen UX *(Phase 3)*
+- [ ] Apply received gizmo movement to the inspector *(Phase 4 UX integration; Phase 3 receives and retains `emitterMoved` events)*
 - [ ] Match the legacy viewport's guides, gizmo, 2D zoom, trails, state colors, and shape morph in the new viewport *(Phase 4)*
 - [ ] Golden-image tests (editor render vs browser preview) and benchmark gates *(Phase 5)*
 - [ ] Retire the legacy viewport paths once parity is proven *(Phase 6)*

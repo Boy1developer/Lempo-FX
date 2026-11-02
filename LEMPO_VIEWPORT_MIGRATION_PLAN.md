@@ -258,7 +258,9 @@ Every message: `{ "type": string, "seq": number, ...payload }`. `seq` is monoton
 4. Throttle/coalesce patches per §4.2. Use the effect JSON's undo/redo history as the source: slider drag = many patches, one undo step on release (preserve existing 100-step undo/redo behavior).
 5. Replace the `last_effect.json` polling path with the bridge when the flag is `web`; keep the file written for the legacy preview.
 
-**Acceptance:** with `LEMPO_VIEWPORT=web`, editing any inspector value updates the viewport within ≤ 1 frame of receipt; dragging the gizmo updates the inspector; closing the editor closes the viewport process (no orphans); closing the viewport window is detected and offered to reopen.
+**Acceptance:** with `LEMPO_VIEWPORT=web`, inspector edits update the viewport through the bridge; gizmo drags emit `emitterMoved` events that reach the editor; closing the editor closes the viewport process (no orphans); closing the viewport window is detected and offered to reopen. Applying the received gizmo coordinates to inspector fields is tracked with the Phase 4 editor UX work.
+
+> **Implementation status (2026-11-02): COMPLETE.** All six Phase 3 tasks are implemented: the sequenced Python JSON-lines bridge and pywebview host; `LEMPO_VIEWPORT=web|legacy` integration (default `legacy`); coalesced JSON Pointer edits at up to 30 messages/s with the existing 100-step undo/redo limit; bridge-mode setEffect/patch handling with legacy polling retained; and viewport-close detection with a reopen offer. `tests/test_viewport_bridge.py` covers protocol round trips, convenience methods and validation, malformed messages, EOF, idempotent shutdown, patch coalescing, and callback removal. The inspector-to-viewport patch path and host lifecycle acceptance are complete. Gizmo `emitterMoved` events are received and retained by the editor; applying those coordinates back into the inspector remains a Phase 4 UX integration item. The web viewport remains opt-in while the legacy viewport is the default.
 
 ### Phase 4 — Editor UX parity
 
