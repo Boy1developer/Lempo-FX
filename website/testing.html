@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Testing — Lempo Particle FX Docs</title>
+<meta name="description" content="The full Lempo test matrix: Python/C++ parity, behavior, contracts, UI, preview, extension and perf gates in CI.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Testing — Lempo Particle FX Docs">
+<meta property="og:description" content="The full Lempo test matrix: Python/C++ parity, behavior, contracts, UI, preview, extension and perf gates in CI.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / Developers</p>
+<h1>Testing</h1>
+<p class="lead">CI runs the parity, behavior, and contract checks on every push
+(<code>.github/workflows/ci.yml</code>).</p>
+
+<div class="note"><strong>Naming note:</strong> the editor UI is built on Dear PyGui, which
+wraps Dear ImGui — that is why the UI test files are prefixed <code>test_imgui_</code>.</div>
+
+<h2>Headline numbers</h2>
+<div class="cards">
+  <div class="card"><h3>99/99 parity</h3><p>Python vs C++ simulation output — every case
+    matches</p></div>
+  <div class="card"><h3>27 templates</h3><p>Trails load/search/apply + thumbnails and
+    user-preset round-trip</p></div>
+  <div class="card"><h3>Perf gate</h3><p>C++ throughput floor enforced
+    (<code>tools/check_perf.py</code>)</p></div>
+</div>
+
+<h2>Full test matrix</h2>
+<div class="table-wrap"><table>
+  <tr><th>Test</th><th>Covers</th></tr>
+  <tr><td><code>core/test_parity.py</code></td><td>Python vs C++ simulation output — 99/99 passing</td></tr>
+  <tr><td><code>core/test_behavior.py</code></td><td>Simulation behavior, morph-window keys, performance (~2–3 ms @ 2,000 particles)</td></tr>
+  <tr><td><code>tests/test_imgui_build.py</code></td><td>UI builds without errors (blend dropdown, seed box, force-field widgets)</td></tr>
+  <tr><td><code>tests/test_imgui_logic.py</code></td><td>Headless simulation logic (C++ path)</td></tr>
+  <tr><td><code>tests/test_imgui_nav.py</code></td><td>Viewport navigation (WASD/arrows, Q/E, F, Shift×3) + sidebar splitter hover/drag</td></tr>
+  <tr><td><code>tests/test_imgui_color.py</code></td><td>Per-state color persistence across birth/death switches</td></tr>
+  <tr><td><code>tests/test_imgui_mesh.py</code></td><td>Uploaded models render as meshes, tint, culling, LOD</td></tr>
+  <tr><td><code>tests/test_imgui_morph.py</code></td><td>Shape cross-fade window (edges, split alpha, legacy fallback)</td></tr>
+  <tr><td><code>tests/test_imgui_upload.py</code></td><td>Upload chain, OBJ parsing, big-JSON node names, bone-node fallback</td></tr>
+  <tr><td><code>tests/test_imgui_raster.py</code></td><td>Raster path: PPM conversion, GL orientation, auto-switch, no-GL fallback</td></tr>
+  <tr><td><code>tests/test_preview_blobs.py</code></td><td>Model-blob embedding for the browser preview</td></tr>
+  <tr><td><code>tests/test_contracts.py</code></td><td>Generated bindings = source, C++ order, schema accept/reject, migration</td></tr>
+  <tr><td><code>tests/test_gl_blend.py</code></td><td>Pixel-level GL formulas per blend mode + fallbacks</td></tr>
+  <tr><td><code>tests/test_blend_modes.py</code></td><td>Blend round-trip, sanitize, sample layers</td></tr>
+  <tr><td><code>tests/test_seed.py</code></td><td>Seed replay identical (Python + C++), divergence, seed-0 legacy</td></tr>
+  <tr><td><code>tests/test_fields.py</code></td><td>Field formulas, off-identical, perturb/replay, collision, attractor (Py + C++)</td></tr>
+  <tr><td><code>preview/test_blend.mjs</code></td><td>Extension blend mappings + resolution (stubbed runtimes)</td></tr>
+  <tr><td><code>preview/test_seed.mjs</code></td><td>Preview seeded replay and extension RNG helper behavior (not cross-runtime particle-record parity)</td></tr>
+  <tr><td><code>preview/test_fields.mjs</code></td><td>Extension helpers == Python + preview field behavior</td></tr>
+  <tr><td><code>preview/test_trails.mjs</code></td><td>Preview trails: bake parity vs Python (exact), store semantics, engine wiring 2D/3D, style helpers</td></tr>
+  <tr><td><code>preview/test_ext_trails.mjs</code></td><td>Extension trails: shipped-helper parity, 3D ribbons/hide (real three.js), 2D ribbons/hide (stub PIXI), hybrid + legacy</td></tr>
+  <tr><td><code>preview/test_ext_runtime.mjs</code></td><td>Shipped 3D runtime headless (stub gdjs + real three.js)</td></tr>
+  <tr><td><code>preview/test_engine.mjs</code>, <code>test_engine3d.mjs</code>, <code>test_guides.mjs</code>, <code>test_server.py</code></td><td>Browser preview engine, 2D/3D scene layers, guides</td></tr>
+  <tr><td><code>preview/test_frame_buffers.mjs</code></td><td>Typed-array frame contents and stable buffer reuse</td></tr>
+  <tr><td><code>preview/test_engine_parity.mjs</code> + <code>engine_parity_baseline.json</code></td><td>Seeded 120-frame 2D/3D snapshots against the pre-refactor browser simulation; this does not assert parity with GDevelop</td></tr>
+  <tr><td><code>preview/test_models.mjs</code></td><td>Model-blob caching and live-push behavior</td></tr>
+  <tr><td><code>preview/test_morph.mjs</code></td><td>Preview-side <code>morphAt()</code> cross-fade sampling</td></tr>
+  <tr><td><code>preview/test_bake.mjs</code> / <code>test_ext_bake.mjs</code></td><td>Skinned-mesh rest-pose baking (preview + shipped extension)</td></tr>
+  <tr><td><code>tests/test_trails_schema.py</code></td><td><code>TRAIL_SCHEMA</code> ↔ defaults sync, clamps, LUT sizes</td></tr>
+  <tr><td><code>tests/test_trails_roundtrip.py</code></td><td>Trail files byte-stable round-trip + old-file heal</td></tr>
+  <tr><td><code>tests/test_trails_parity.py</code></td><td>Python ↔ C++ trail width/gradient/scalars</td></tr>
+  <tr><td><code>tests/test_trails_perf.py</code></td><td>Trail update/bake perf budgets</td></tr>
+  <tr><td><code>tests/test_trails_flow.py</code></td><td>Time/distance emission, exact spacing, tick FIFO, trail death</td></tr>
+  <tr><td><code>tests/test_trails_render.py</code></td><td>Ribbon-strip math + viewport smoke</td></tr>
+  <tr><td><code>tests/test_trails_templates.py</code></td><td>27 templates load/search/apply, thumbnails, user-preset round-trip</td></tr>
+  <tr><td><code>tests/test_view2d_zoom.py</code></td><td>World-space 2D zoom math, anchors, raster agreement</td></tr>
+  <tr><td><code>tools/check_perf.py</code></td><td>CI perf gate: C++ throughput floor</td></tr>
+  <tr><td><code>render/test_gl.py</code>, <code>test_clip.py</code>, <code>test_cost.py</code></td><td>GL context init, projection parity, render-cost profiling</td></tr>
+</table></div>
+
+<h2>Running locally</h2>
+<pre><code>python tools/generate_contracts.py --check   # contract drift gate
+python core/test_parity.py                   # Python vs C++
+python -m pytest tests/ -q                   # editor + schema suite
+node preview/test_ext_trails.mjs             # extension trails headless
+python tools/check_perf.py                   # throughput floor</code></pre>
+
+<p>The packaged app has its own smoke path: <code>python editor/studio_imgui.py --smoke 120</code>
+boots the UI for 120 frames and reports particle count + FPS.</p>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>

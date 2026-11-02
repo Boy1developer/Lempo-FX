@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trails & Ribbons — Lempo Particle FX Docs</title>
+<meta name="description" content="Lempo trails: modes, Unity-style inspector, time/distance emission, 27 templates, adding your own template and the C++ API.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Trails & Ribbons — Lempo Particle FX Docs">
+<meta property="og:description" content="Lempo trails: modes, Unity-style inspector, time/distance emission, 27 templates, adding your own template and the C++ API.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / Using the Editor</p>
+<h1>Trails &amp; Ribbons <span class="tag new">v0.2.0</span></h1>
+<p class="lead">A dedicated mode for ribbon effects — sword slashes, magic beams,
+projectile trails — with a Unity-style inspector, curve editors and 27 ready-made
+templates. Trail math and data contracts are shared where documented, while rendering and
+simulation remain runtime-specific across the editor, browser preview and GDevelop.</p>
+
+<h2>Modes</h2>
+<p>Choose <code>2D | Trails &amp; Ribbons</code> (key <kbd>4</kbd>) or
+<code>3D | Trails &amp; Ribbons</code> (key <kbd>5</kbd>) in the startup dialog:</p>
+<ul>
+  <li><strong>Trail mode</strong> renders ribbons only (the <code>trails_on()</code> gate
+      skips dots + raster).</li>
+  <li><strong>Particle mode</strong> keeps dots + overlay (per-particle trails on top).</li>
+</ul>
+
+<div class="grid-2">
+  <figure><img src="assets/img/trails-2d.png" alt="Trail ribbons (2D) in the editor viewport" loading="lazy"><figcaption><b>Trail ribbons (2D)</b> in the editor viewport</figcaption></figure>
+  <figure><img src="assets/img/trails-3d.png" alt="Trail ribbons (3D) in the editor viewport" loading="lazy"><figcaption><b>Trail ribbons (3D)</b> in the editor viewport</figcaption></figure>
+</div>
+
+<h2>Inspector</h2>
+<p>A Unity-style inspector with foldouts <strong>Trail / Shape / Color / Texture /
+Per-Particle / Lighting &amp; Sorting / Tools &amp; Motion</strong>, generated from one schema
+(<code>TRAIL_SCHEMA</code>, 79 keys):</p>
+<ul>
+  <li>width / gradient curve editors</li>
+  <li>tooltips, min/max clamps, drag-labels, steppers</li>
+  <li>per-section reset + copy/paste</li>
+  <li>template browser — <strong>27 ready-made templates</strong> across
+      combat / magic / movement / nature / stylized, with search, favorites, and your own
+      saved presets</li>
+</ul>
+
+<div class="grid-2">
+  <figure><img src="assets/img/trail-inspector-2d.jpg" alt="Trail inspector (2D) — texture, motion, stats, presets and template categories" loading="lazy"><figcaption><b>Trail inspector (2D)</b> — texture, motion, stats, presets and template categories</figcaption></figure>
+  <figure><img src="assets/img/trail-inspector-3d.jpg" alt="Trail inspector (3D) — core/edge/glow colors and texture settings" loading="lazy"><figcaption><b>Trail inspector (3D)</b> — core/edge/glow colors and texture settings</figcaption></figure>
+</div>
+
+<p>Curves bake to 64-sample and gradients to 256-entry LUTs on change only; the C++ core
+parses the same tables and is covered by the trail parity tests.</p>
+
+<div class="table-wrap"><table>
+  <tr><th>Inspector section</th><th>Highlights</th></tr>
+  <tr><td><strong>Trail</strong></td><td>Fade tail/length, edge softness, core/edge/glow
+      colors &amp; widths, flicker, legacy head/tail colors</td></tr>
+  <tr><td><strong>Texture</strong></td><td>Texture slot, blend mode, texture mode (stretch/
+      tile), tile length, tiling X/Y, offset X/Y, <strong>scroll U/V</strong>,
+      <strong>flipbook cols/rows/FPS</strong></td></tr>
+  <tr><td><strong>Per-Particle</strong></td><td>Size/alpha jitter and inherit-color</td></tr>
+  <tr><td><strong>Lighting &amp; Sorting</strong></td><td>3D lighting response and draw order</td></tr>
+  <tr><td><strong>Tools &amp; Motion</strong></td><td>Point gravity/drag/noise, stats, presets,
+      copy/paste trails</td></tr>
+</table></div>
+
+<h2>Emit mode</h2>
+<div class="table-wrap"><table>
+  <tr><th>Mode</th><th>Behavior</th></tr>
+  <tr><td><code>time</code></td><td>Legacy — lifetime gates; the particle lives, then fades.</td></tr>
+  <tr><td><code>distance</code></td><td>Godot-style — fixed sections ×
+      <code>sectionLength</code>, speed-independent, the trail dies with the particle.
+      <code>sectionLength=0</code> gives an every-frame FIFO tick, like the Trail2D addon.</td></tr>
+</table></div>
+
+<h2>Templates</h2>
+<p>The template browser lives at the bottom of the trail inspector — categories like
+<em>Combat &amp; Weapons</em>, <em>Magic &amp; Energy</em>, <em>Movement &amp; Vehicles</em>,
+<em>Nature &amp; Elements</em>, <em>Stylized &amp; Tools</em>. Applying a template overwrites
+<strong>only</strong> trail settings (emitter/states are untouched), so hybrid spark looks come
+from your live particles via per-particle trails + <code>inheritColor</code>.</p>
+
+<h3>Adding a new template</h3>
+<p>Drop one JSON file in <code>assets/presets/trails/&lt;category&gt;/&lt;id&gt;.json</code>,
+where <code>category</code> is one of <code>combat | magic | movement | nature | stylized</code>.
+No UI or C++ changes needed.</p>
+
+<pre><code>{
+  "id": "",
+  "name": "",
+  "category": "",
+  "description": "",
+  "tags": [],
+  "modes": ["2d", "3d"],
+  "settings": {},          // partial trail fields
+  "overrides_2d": {},
+  "overrides_3d": {},
+  "texture": "dots|null",  // closest supported procedural; editor falls back gracefully
+  "textureHiFi": "",       // deferred-runtime G5 id, e.g. slash_streak
+  "version": 1,
+  "artNotes": "",          // one sentence: what it must look like
+  "demoMotion": ""         // reserved parametric path id, player deferred
+}</code></pre>
+
+<p><strong>Rules:</strong></p>
+<ul>
+  <li>Curves are <code>[[x, y(, mode)]]</code> key lists.</li>
+  <li>Gradients are <code>[[x, "#rrggbb"(, mode)]]</code> (color) or
+      <code>[[x, a(, mode)]]</code> (alpha) stop lists.</li>
+  <li>Field names and ranges come from <code>TRAIL_SCHEMA</code>. Unknown fields are ignored;
+      bad values fall back with a warning.</li>
+  <li>Missing fields fall back to schema defaults.</li>
+</ul>
+
+<h2>C++ API surface</h2>
+<p><code>particle_core</code>, raw C API:</p>
+<div class="table-wrap"><table>
+  <tr><th>Function</th><th>Returns</th></tr>
+  <tr><td><code>templates_init(schema, user_dir)</code></td><td>—</td></tr>
+  <tr><td><code>templates_register(id, data, is_user)</code></td><td>—</td></tr>
+  <tr><td><code>templates_list(category, query, mode, sort, fav_only)</code></td><td><code>[ids]</code></td></tr>
+  <tr><td><code>templates_info(id)</code></td><td>template info</td></tr>
+  <tr><td><code>templates_apply(id, mode, defaults, current)</code></td><td><code>(settings, changed_ids)</code></td></tr>
+  <tr><td><code>templates_thumbnail(id, w, h)</code></td><td><code>(w, h, bytes)</code></td></tr>
+  <tr><td><code>templates_texture(kind, w, h)</code></td><td>texture data</td></tr>
+  <tr><td><code>templates_fav(id, on)</code></td><td>—</td></tr>
+  <tr><td><code>presets_save(name, settings, meta)</code></td><td><code>path</code></td></tr>
+  <tr><td><code>presets_delete(name)</code></td><td>—</td></tr>
+</table></div>
+
+<div class="table-wrap"><table>
+  <tr><th>Layer</th><th>Responsibility</th></tr>
+  <tr><td><strong>C++</strong></td><td>Registry, validation, search, merge, LUT-ready data,
+      thumbnails, textures, preset files</td></tr>
+  <tr><td><strong>Python</strong> (<code>editor/trail_templates_ui.py</code>)</td>
+      <td>Builds Dear PyGui widgets, forwards clicks/keys to one core call, and
+      <code>set_value</code>s the changed widgets</td></tr>
+</table></div>
+
+<div class="tip"><strong>Measured:</strong> scan + validate 27 templates ≈ 5&nbsp;ms ·
+apply ≈ 0.10&nbsp;ms · filter ≈ 0.13&nbsp;ms · thumbnails/textures cached and uploaded once.</div>
+
+<div class="note">Trails in-game are part of the extension (v0.2.0): 2D quad strips and 3D
+billboard strips, pooled and blend-aware, with <code>hideParticle</code> honored — no new
+objects needed. See the <a href="gdevelop.html">GDevelop Guide</a>.</div>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>

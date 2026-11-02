@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lempo Particle FX — Documentation</title>
+<meta name="description" content="Docs for Lempo Particle Editor and the Advanced Particle Emitter GDevelop extension: design 2D & 3D particle effects visually and play them in your game.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Lempo Particle FX — Documentation">
+<meta property="og:description" content="Docs for Lempo Particle Editor and the Advanced Particle Emitter GDevelop extension: design 2D & 3D particle effects visually and play them in your game.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb">Docs</p>
+<div class="hero">
+  <img class="logo" src="assets/img/app-icon.png" alt="Lempo Particle FX icon">
+  <h1>Lempo Particle FX</h1>
+  <p class="lead">Design stunning <strong>2D &amp; 3D particle effects</strong> visually in a
+  desktop editor — then play them in <strong>GDevelop</strong> with the
+  Advanced Particle Emitter extension. The browser preview shares one simulation
+  engine across its renderers; the GDevelop extension keeps a separate runtime.</p>
+  <div class="badges">
+    <span class="badge">Editor <b>v0.2.0</b></span>
+    <span class="badge">Extension <b>v0.2.0</b></span>
+    <span class="badge">Export <b>v1.2</b></span>
+    <span class="badge">Windows 10/11 · OpenGL 3.3</span>
+    <span class="badge">MIT License</span>
+  </div>
+  <p>
+    <a class="btn btn-primary" href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">📥 Download the editor</a>
+    <a class="btn btn-ghost" href="getting-started.html">Quick start →</a>
+  </p>
+</div>
+
+<figure><img src="assets/img/demo.gif" alt="Lempo Particle Editor — live editing with instant viewport feedback" loading="lazy"><figcaption><b>Lempo Particle Editor</b> — live editing with instant viewport feedback</figcaption></figure>
+
+<h2>What's inside?</h2>
+<div class="cards">
+  <div class="card"><span class="icon">🖥️</span>
+    <h3><a href="editor.html">Desktop Editor</a></h3>
+    <p>Dear PyGui app with live 3D/2D viewport, 12 particle shapes, per-state
+    colors, force fields, deterministic seeds, templates and 100-step
+    undo/redo.</p></div>
+  <div class="card"><span class="icon">🎬</span>
+    <h3><a href="trails.html">Trails &amp; Ribbons</a></h3>
+    <p>Unity-style trail inspector with 79 settings, curve &amp; gradient
+    editors, and 27 ready-made templates across five categories.</p></div>
+  <div class="card"><span class="icon">👁️</span>
+    <h3><a href="previews.html">Live Previews</a></h3>
+    <p>The Dear PyGui viewport uses its drawlist and optional OpenGL raster layer.
+    A separate browser fast preview uses Three.js, PixiJS or Canvas with 500 ms live-sync.</p></div>
+  <div class="card"><span class="icon">🎮</span>
+    <h3><a href="gdevelop.html">GDevelop Extension</a></h3>
+    <p>Advanced Particle Emitter renders your exported JSON in-game —
+    2D via PixiJS, 3D via Three.js, trails included.</p></div>
+</div>
+
+<h2>Screenshots</h2>
+<div class="grid-2">
+  <figure><img src="assets/img/viewport-3d.png" alt="3D viewport — meshes &amp; billboards" loading="lazy"><figcaption><b>3D viewport</b> — meshes &amp; billboards</figcaption></figure>
+  <figure><img src="assets/img/viewport-2d.png" alt="2D viewport — sprites &amp; SVG" loading="lazy"><figcaption><b>2D viewport</b> — sprites &amp; SVG</figcaption></figure>
+</div>
+<div class="grid-2">
+  <figure><img src="assets/img/fast-preview-3d.png" alt="3D browser fast preview (Three.js)" loading="lazy"><figcaption><b>3D browser fast preview</b> (Three.js)</figcaption></figure>
+  <figure><img src="assets/img/fast-preview-2d.png" alt="2D browser fast preview (PixiJS)" loading="lazy"><figcaption><b>2D browser fast preview</b> (PixiJS)</figcaption></figure>
+</div>
+
+<h2>How the pieces fit together</h2>
+<div class="table-wrap"><table>
+  <tr><th>Part</th><th>What it is</th></tr>
+  <tr><td><strong>Lempo Particle Editor</strong></td>
+      <td>A Dear PyGui desktop app (<code>LempoParticleEditor.exe</code>) for designing
+      effects with a live viewport, then exporting them as JSON.</td></tr>
+  <tr><td><strong>Advanced Particle Emitter</strong></td>
+      <td>A GDevelop extension (<code>AdvancedParticleEmitter.json</code>) that renders those
+      effects in-game: <strong>2D</strong> via <a href="https://pixijs.com">PixiJS</a> and
+      <strong>3D</strong> via <a href="https://threejs.org">Three.js</a>.</td></tr>
+</table></div>
+
+<p>The editor, browser preview and extension share export data contracts. The browser
+preview's Three.js, PixiJS and Canvas adapters use one TypeScript particle engine;
+GDevelop still has a separate simulation implementation, so some runtime behavior can
+differ. See <a href="contracts.html">Contracts &amp; Export</a> and the
+<a href="https://github.com/Boy1developer/Lempo-FX/blob/main/docs/viewport-migration-notes.md">viewport migration notes</a>.</p>
+
+<div class="tip"><strong>Works in any GDevelop project</strong> — design the effect in the
+editor, play it in-game with the Advanced Particle Emitter extension.</div>
+
+<h2>Documentation</h2>
+<div class="table-wrap"><table>
+  <tr><th>Page</th><th>What's inside</th></tr>
+  <tr><td><a href="getting-started.html">Installation &amp; First Run</a></td><td>Download, requirements, the startup dialog, running from source</td></tr>
+  <tr><td><a href="editor.html">Editor Tour</a></td><td>Sidebar, emitter panel, force fields, states, shapes, navigation</td></tr>
+  <tr><td><a href="previews.html">Viewports &amp; Previews</a></td><td>Dear PyGui viewport, GL raster layer, browser fast preview</td></tr>
+  <tr><td><a href="trails.html">Trails &amp; Ribbons</a></td><td>Modes, inspector, emit types, templates, C++ API</td></tr>
+  <tr><td><a href="blend-modes.html">Blend Modes</a></td><td>Normal, Additive, Subtractive, Multiply, Screen, Lighten, Overlay</td></tr>
+  <tr><td><a href="gdevelop.html">GDevelop Guide</a></td><td>Import the extension, set resources, run in-game</td></tr>
+  <tr><td><a href="contracts.html">Contracts &amp; Export</a></td><td>Export format v1.2, particle record layout, migration</td></tr>
+  <tr><td><a href="testing.html">Testing</a></td><td>Full test matrix and CI gates</td></tr>
+  <tr><td><a href="roadmap.html">Roadmap &amp; FAQ</a></td><td>What's done, what's planned, common questions</td></tr>
+</table></div>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blend Modes — Lempo Particle FX Docs</title>
+<meta name="description" content="The seven blend modes in Lempo Particle FX and how each maps to PixiJS, Three.js, desktop GL and the browser preview.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Blend Modes — Lempo Particle FX Docs">
+<meta property="og:description" content="The seven blend modes in Lempo Particle FX and how each maps to PixiJS, Three.js, desktop GL and the browser preview.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / Using the Editor</p>
+<h1>Blend Modes</h1>
+<p class="lead">Seven modes, selectable per emitter from the sidebar dropdown — with the
+same intent everywhere your effect renders.</p>
+
+<p>At object level in GDevelop, <code>BlendingMode: 'JSON'</code> uses each emitter's own mode;
+any explicit value forces all emitters.</p>
+
+<div class="table-wrap"><table>
+  <tr><th>Mode</th><th>2D (PixiJS)</th><th>3D (Three.js)</th><th>Desktop GL preview</th><th>Browser preview</th></tr>
+  <tr><td>Normal</td><td><code>normal</code></td><td><code>normal</code></td>
+      <td><code>SRC_ALPHA, ONE_MINUS_SRC_ALPHA</code></td><td><code>normal</code></td></tr>
+  <tr><td>Additive</td><td><code>add</code></td><td><code>additive</code></td>
+      <td><code>SRC_ALPHA, ONE</code></td><td><code>add</code></td></tr>
+  <tr><td>Subtractive</td><td><code>erase</code> <sup>1</sup></td><td><code>subtractive</code></td>
+      <td>reverse-subtract</td><td><code>erase</code> <sup>1</sup></td></tr>
+  <tr><td>Multiply</td><td><code>multiply</code></td><td><code>multiply</code></td>
+      <td><code>DST_COLOR, ONE_MINUS_SRC_ALPHA</code></td><td><code>multiply</code></td></tr>
+  <tr><td>Screen</td><td><code>screen</code></td>
+      <td>custom (add + <code>ONE, ONE_MINUS_SRC_COLOR</code>)</td>
+      <td><code>ONE, ONE_MINUS_SRC_COLOR</code></td><td><code>screen</code></td></tr>
+  <tr><td>Lighten</td><td>→ Normal <sup>2</sup></td><td>custom max-equation</td>
+      <td>max</td><td>→ Normal <sup>2</sup></td></tr>
+  <tr><td>Overlay</td><td><code>overlay</code></td><td>→ Normal <sup>3</sup></td>
+      <td>→ Normal <sup>3</sup></td><td><code>overlay</code></td></tr>
+</table></div>
+
+<p><sub>¹ Pixi core has no subtract · ² Pixi core has no lighten · ³ No fixed-function overlay</sub></p>
+
+<div class="warn"><strong>Fallback policy.</strong> Unsupported combinations fall back to
+Normal with a <strong>single</strong> <code>console.warn</code> — never per frame, never
+throwing. Extension versions before 0.1.2 don't know Screen / Lighten / Overlay and render
+them as Normal.</div>
+
+<h2>Recipes</h2>
+<div class="table-wrap"><table>
+  <tr><th>Look</th><th>Mode</th></tr>
+  <tr><td>Fire, sparks, magic glow</td><td><strong>Additive</strong></td></tr>
+  <tr><td>Solid opaque debris, smoke over sky</td><td><strong>Normal</strong></td></tr>
+  <tr><td>Darkening/shadow motes, ink</td><td><strong>Subtractive</strong> / <strong>Multiply</strong></td></tr>
+  <tr><td>Hazy light through fog</td><td><strong>Screen</strong></td></tr>
+  <tr><td>Contrasty highlights</td><td><strong>Overlay</strong> / <strong>Lighten</strong></td></tr>
+</table></div>
+
+<div class="tip">Blend modes are covered end-to-end by tests: pixel-level GL formulas
+(<code>tests/test_gl_blend.py</code>), round-trip + sanitize (<code>tests/test_blend_modes.py</code>)
+and extension mappings with stubbed runtimes (<code>preview/test_blend.mjs</code>).
+See <a href="testing.html">Testing</a>.</div>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>

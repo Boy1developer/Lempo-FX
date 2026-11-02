@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation & First Run — Lempo Particle FX Docs</title>
+<meta name="description" content="Download Lempo Particle Editor, see the requirements and the startup mode dialog, and run it from source.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Installation & First Run — Lempo Particle FX Docs">
+<meta property="og:description" content="Download Lempo Particle Editor, see the requirements and the startup mode dialog, and run it from source.">
+<meta property="og:image" content="assets/img/app-icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/app-icon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="nav-toggle" aria-label="Toggle navigation">&#9776;</button>
+  <a class="brand" href="index.html"><img src="assets/img/app-icon.png" alt="Lempo"><span>Lempo Particle FX <em>Docs</em></span></a>
+  <nav class="top-links"><a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases" class="primary">📥 Download</a><a href="https://github.com/Boy1developer/Lempo-FX" class="">GitHub</a><a href="https://eg-dev1.itch.io/lempo-fx" class="">itch.io</a><a href="https://www.youtube.com/@EG_dev" class="">YouTube</a></nav>
+</header>
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+<div class="nav-group"><h4>Getting Started</h4>
+<a href="index.html">Home</a>
+<a href="getting-started.html">Installation & First Run</a>
+</div>
+<div class="nav-group"><h4>Using the Editor</h4>
+<a href="editor.html">Editor Tour</a>
+<a href="previews.html">Viewports & Previews</a>
+<a href="trails.html">Trails & Ribbons</a>
+<a href="blend-modes.html">Blend Modes</a>
+</div>
+<div class="nav-group"><h4>In Your Game</h4>
+<a href="gdevelop.html">GDevelop Guide</a>
+</div>
+<div class="nav-group"><h4>Developers</h4>
+<a href="contracts.html">Contracts & Export</a>
+<a href="testing.html">Testing</a>
+</div>
+<div class="nav-group"><h4>Project</h4>
+<a href="roadmap.html">Roadmap & FAQ</a>
+</div>
+</aside>
+  <main class="content"><div class="content-inner">
+
+<p class="breadcrumb"><a href="index.html">Docs</a> / Getting Started</p>
+<h1>Installation &amp; First Run</h1>
+<p class="lead">Two minutes from download to your first live particle effect.</p>
+
+<h2>1. Get the editor</h2>
+<p>Download <code>LempoParticleEditor.exe</code> from the
+<a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases"><strong>Releases</strong></a>
+page (or from <a href="https://eg-dev1.itch.io/lempo-fx"><strong>itch.io</strong></a>) and run it —
+no Python installation required.</p>
+
+<div class="table-wrap"><table>
+  <tr><th>Requirement</th><th>Value</th></tr>
+  <tr><td>OS</td><td>Windows 10/11 (64-bit)</td></tr>
+  <tr><td>GPU</td><td>Any GPU with OpenGL 3.3 support</td></tr>
+  <tr><td>Editor version</td><td><code>v0.2.0</code> (shown in the window title)</td></tr>
+  <tr><td>Pairs with</td><td>Extension <code>v0.2.0</code> · export format <code>v1.2</code>
+      (v1.0 and v1.1 files migrate automatically)</td></tr>
+</table></div>
+
+<h2>2. Choose your editor mode</h2>
+<p>The first thing you see is the startup dialog — the app logo plus four mode cards.
+Each mode pairs a renderer (2D sprites / 3D meshes) with a simulation style
+(classic particles / trails &amp; ribbons):</p>
+
+<figure><img src="assets/img/main-menu.jpg" alt="Startup dialog — pick your editor mode (press 2 / 3 / 4 / 5)" loading="lazy"><figcaption><b>Startup dialog</b> — pick your editor mode (press 2 / 3 / 4 / 5)</figcaption></figure>
+
+<div class="table-wrap"><table>
+  <tr><th>Key</th><th>Mode</th><th>Best for</th></tr>
+  <tr><td><kbd>2</kbd></td><td><strong>2D | Sprites &amp; SVG</strong></td>
+      <td>2D games: point sprites, SVG shapes, images</td></tr>
+  <tr><td><kbd>3</kbd></td><td><strong>3D | Meshes &amp; Billboards</strong></td>
+      <td>3D scenes: spheres, cubes, custom GLB models, billboards</td></tr>
+  <tr><td><kbd>4</kbd></td><td><strong>2D | Trails &amp; Ribbons</strong></td>
+      <td>Sword slashes, speed lines, magic beams in 2D</td></tr>
+  <tr><td><kbd>5</kbd></td><td><strong>3D | Trails &amp; Ribbons</strong></td>
+      <td>Arrows, projectiles, ribbons in 3D</td></tr>
+</table></div>
+
+<div class="note">You can switch between the 2D and 3D dot modes any time from the
+top toolbar (<strong>2D / 3D</strong> toggle). Trails mode is a dedicated mode chosen at
+startup — see <a href="trails.html">Trails &amp; Ribbons</a>.</div>
+
+<h2>3. Play with a template</h2>
+<div class="steps">
+  <div class="step"><h3>Load a template</h3>
+    <p>The editor starts on the <strong>Default</strong> effect. Use the template list in the
+    sidebar (<em>Explosion, Fire, Rain, Snow</em> — 2D + 3D variants) to load a finished effect.</p></div>
+  <div class="step"><h3>Watch it live</h3>
+    <p>The Dear PyGui main viewport renders through its drawlist, with an optional OpenGL
+    raster layer for dense scenes. Use Browser Fast Preview for the separate Three.js/PixiJS
+    preview window; it syncs edits every 500&nbsp;ms.</p></div>
+  <div class="step"><h3>Tweak the numbers</h3>
+    <p>Flow, lifetime, colors, gravity, blend mode… every change shows up immediately.
+    <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes — 100 steps deep.</p></div>
+  <div class="step"><h3>Export</h3>
+    <p>Hit <strong>Export JSON</strong> (or <strong>Save</strong>) and you get an
+    <code>.json</code> effect file validated against the export schema — ready for the
+    GDevelop extension.</p></div>
+</div>
+
+<h2>Run from source / rebuild</h2>
+<pre><code>pip install dearpygui
+python editor/studio_imgui.py        # Dear PyGui UI (full features)</code></pre>
+
+<p>Tk fallback (shared logic layer — no blend/seed/force-field widgets, but those
+values are preserved on round-trip):</p>
+<pre><code>python editor/particle_studio.py</code></pre>
+
+<p>Rebuild the packaged app (compile check → C++ core build if stale → PyInstaller →
+smoke test → Windows shortcut):</p>
+<pre><code>python tools/rebuild_app.py</code></pre>
+
+<p>This produces <code>dist/LempoParticleEditor.exe</code> plus the <em>Lempo Particle Editor</em>
+desktop shortcut (both carry the Lempo icon).</p>
+
+<div class="note">Binaries (<code>dist/</code>, <code>*.exe</code>, <code>*.pyd</code>,
+<code>node_modules/</code>) are never committed — they are rebuilt locally and shipped through
+GitHub Releases.</div>
+
+<h2>Next steps</h2>
+<div class="cards">
+  <div class="card"><h3><a href="editor.html">Editor Tour →</a></h3>
+    <p>Learn every panel: emitter, force fields, states, shapes, navigation.</p></div>
+  <div class="card"><h3><a href="gdevelop.html">GDevelop Guide →</a></h3>
+    <p>Import the extension and play your effect in-game.</p></div>
+</div>
+
+  </div></main>
+</div>
+<footer class="site">
+  <p><strong>Lempo Particle FX</strong> — docs for v0.2.0 (editor) · extension v0.2.0 · export format v1.2</p>
+  <p>Made by <a href="https://github.com/Boy1developer">Mostafa Fathy (EG dev)</a> · <a href="https://github.com/Boy1developer/Lempo-Particle-Editor/releases">Releases</a> · <a href="https://eg-dev1.itch.io/lempo-fx">itch.io</a> · MIT License</p>
+</footer>
+<script src="assets/js/nav.js"></script>
+</body>
+</html>
