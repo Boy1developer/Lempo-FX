@@ -601,6 +601,7 @@ class App:
         self._viewport_bridge = None
         self._viewport_events = queue.Queue()
         self._viewport_closing = False
+        self._viewport_reopen_offered = False
         self._viewport_stats = None
         self._viewport_last_emitter = None
         self._viewport_dirty = False
@@ -2122,6 +2123,18 @@ def stop_web_viewport():
         PS.debug_log("viewport-web-shutdown-failed", str(exc)[:300])
 
 
+def reopen_web_viewport():
+    """Re-launch the web viewport after it was closed by the user."""
+    if APP._viewport_bridge is not None:
+        return
+    APP._viewport_reopen_offered = False
+    try:
+        dpg.configure_item("viewport_reopen_btn", show=False)
+    except Exception:
+        pass
+    start_web_viewport()
+
+
 def _drain_viewport_events():
     events = APP._viewport_events
     while True:
@@ -2144,6 +2157,11 @@ def _drain_viewport_events():
             APP._viewport_selection = message
         elif event == "exit" and not APP._viewport_closing:
             APP.set_status("Web viewport closed", WARN)
+            APP._viewport_reopen_offered = True
+            try:
+                dpg.configure_item("viewport_reopen_btn", show=True)
+            except Exception:
+                pass
             PS.debug_log("viewport-web-exit", message)
 
 
@@ -3516,6 +3534,9 @@ def build_timeline():
         dpg.add_button(label="+", callback=lambda *a: add_state(), width=36)
         dpg.add_button(label="Fast preview 60FPS", tag="preview_btn",
                        callback=lambda *a: open_fast_preview())
+        dpg.add_button(label="Reopen viewport", tag="viewport_reopen_btn",
+                       callback=lambda *a: reopen_web_viewport(), show=False,
+                       width=110)
         dpg.add_text("Ready", tag="status_text", color=list(OK) + [255])
 
 
