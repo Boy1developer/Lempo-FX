@@ -125,7 +125,7 @@ These changes belong to the [viewport migration](docs/viewport-migration-notes.m
 
 - **Shared browser-preview simulation** *(Phase 1)* — the Three.js, PixiJS and Canvas adapters consume one renderer-agnostic TypeScript engine (`lempo-runtime/`) and its reusable typed-array particle frames; they do not each implement their own simulation. Seeded 120-frame regression snapshots check that preview behavior is preserved.
 - **Viewport adapters** *(Phase 2)* — contract-based `ThreeViewport` and `PixiViewport`, switchable through `ViewportController.setMode()`, with adaptive quality, persisted manual quality, and a live stats HUD. The controller owns the preview's animation-frame loop (Pixi's automatic ticker is disabled). Both paths passed a 100-cycle Chromium/WebGL lifecycle check, and Three's instanced and pooled classic fallback paths are exercised.
-- **Python viewport bridge** *(Phase 3, in progress)* — set `LEMPO_VIEWPORT=web` to launch the pywebview host from the editor; the default remains `legacy`. Inspector changes are diffed into JSON Pointer patches, coalesced, and sent at up to 30 messages/s; structural changes use a full effect load. The web page consumes bridge setEffect/patch messages without polling `last_effect.json`; the file remains live for legacy preview mode. Undo/redo retains its 100-state limit and slider edits commit after mouse release.
+- **Python viewport bridge** *(Phase 3, complete)* — set `LEMPO_VIEWPORT=web` to launch the pywebview host from the editor; the default remains `legacy`. Inspector changes are diffed into JSON Pointer patches, coalesced, and sent at up to 30 messages/s; structural changes use a full effect load. The web page consumes bridge setEffect/patch messages without polling `last_effect.json`; the file remains live for legacy preview mode. Undo/redo retains its 100-state limit and slider edits commit after mouse release. Closing the viewport window is detected and the user is offered to reopen it.
 - **Renderer versions** — the preview pins Three.js `0.185.1`, matching GDevelop 5.6.284. Browser PixiJS `8.21` is still a different major from GDevelop's `7.4.2`; the compatibility difference is documented in the [migration notes](docs/viewport-migration-notes.md).
 - **Still open** — the GDevelop extension keeps its own simulation, so particle-record parity between the browser preview and the game runtime is not complete yet.
 
@@ -134,7 +134,7 @@ These changes belong to the [viewport migration](docs/viewport-migration-notes.m
 | 0 · Recon, spikes & baselines | ✅ In `main` |
 | 1 · Single browser-preview engine | ✅ In `main` |
 | 2 · Viewport interface & renderers | ✅ In `main` |
-| 3 · Python bridge | 🔨 Started — scaffold in `main` |
+| 3 · Python bridge | ✅ In `main` |
 | 4 · Editor UX parity | ⏳ Planned |
 | 5 · Parity & performance gates | ⏳ Planned |
 | 6 · Deprecate legacy paths | 🔒 After Phase 5 + owner approval |
